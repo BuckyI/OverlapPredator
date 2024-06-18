@@ -1,0 +1,23 @@
+name: overlap
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8
+  - numpy
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - coloredlogs
+  - tensorboardx
+  - PyYAML
+  - easydict
+  - tqdm
+  - h5py  # 用来加载数据集文件
+  - nibabel  # 只被用来计算四元数了,可以移除 #TODO
+  - open3d
