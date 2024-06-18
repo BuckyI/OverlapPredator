@@ -18,7 +18,7 @@ def uniform_2_sphere(num: int = None):
     if num is not None:
         phi = np.random.uniform(0.0, 2 * np.pi, num)
         cos_theta = np.random.uniform(-1.0, 1.0, num)
-    else:
+    else: # 相当于 num = 1
         phi = np.random.uniform(0.0, 2 * np.pi)
         cos_theta = np.random.uniform(-1.0, 1.0)
 
@@ -32,6 +32,12 @@ def uniform_2_sphere(num: int = None):
 
 if __name__ == '__main__':
     # Visualize sampling
-    from vtk_visualizer.plot3d import plotxyz
+    print("注意直接运行本脚本程序会报错! random.py 名字与 python built-in random 冲突!")
+    import matplotlib.pyplot as plt
+
     rand_2s = uniform_2_sphere(10000)
-    plotxyz(rand_2s, block=True)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")  # 创建3D坐标轴
+    ax.scatter(rand_2s[:, 0], rand_2s[:, 1], rand_2s[:, 2])  # 绘制点云
+    plt.show()
