@@ -1,5 +1,5 @@
 from distutils.core import setup, Extension
-import numpy.distutils.misc_util
+import numpy
 
 # Adding OpenCV to project
 # ************************
@@ -17,7 +17,7 @@ module = Extension(name="grid_subsampling",
                                         '-D_GLIBCXX_USE_CXX11_ABI=0'])
 
 
-setup(ext_modules=[module], include_dirs=numpy.distutils.misc_util.get_numpy_include_dirs())
+setup(ext_modules=[module], include_dirs=[numpy.get_include()])
 
 
 
