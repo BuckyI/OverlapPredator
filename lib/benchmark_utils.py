@@ -196,7 +196,9 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
         else:
             device = torch.device('cpu')
         src_feat, tgt_feat = to_tensor(src_feat), to_tensor(tgt_feat)
+        # 特征向量点积获得相似程度
         scores = torch.matmul(src_feat.to(device), tgt_feat.transpose(0,1).to(device)).cpu()
+        # mutual_selection: source 上的点与 target 上的点必须互相匹配, 才可以被视为匹配点.
         selection = mutual_selection(scores[None,:,:])[0]
         row_sel, col_sel = np.where(selection)
         corrs = o3d.utility.Vector2iVector(np.array([row_sel,col_sel]).T)
@@ -216,7 +218,8 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
         tgt_pcd = to_o3d_pcd(tgt_pcd)
         src_feats = to_o3d_feats(src_feat)
         tgt_feats = to_o3d_feats(tgt_feat)
-
+        
+        # NOTE: registration_ransac_based_on_feature_matching 本身就带 mutual 参数, 可能这个函数写的时候还不带, 所以自己实现了一个 mutual
         result_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
             src_pcd,
             tgt_pcd,

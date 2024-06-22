@@ -69,6 +69,7 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
         return torch.from_numpy(neighbors)
     
 def collate_fn_descriptor(list_data, config, neighborhood_limits):
+    "NOTE: 对 batch data 进行预处理"
     batched_points_list = []
     batched_features_list = []
     batched_lengths_list = []
@@ -195,7 +196,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     return dict_inputs
 
 def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_threshold=2000):
-    timer = Timer()
+    timer = Timer() # NOTE: 测量运行时间
     last_display = timer.total_time
 
     # From config parameter, compute higher bound of neighbors number in a neighborhood
@@ -253,6 +254,7 @@ def get_datasets(config):
 
 def get_dataloader(dataset, batch_size=1, num_workers=4, shuffle=True, neighborhood_limits=None):
     if neighborhood_limits is None:
+        # NOTE: 对数据集的数据进行预处理,具体干什么没看懂 (20240622)
         neighborhood_limits = calibrate_neighbors(dataset, dataset.config, collate_fn=collate_fn_descriptor)
     print("neighborhood:", neighborhood_limits)
     dataloader = torch.utils.data.DataLoader(

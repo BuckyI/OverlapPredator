@@ -59,6 +59,7 @@ def load_config(path):
     
     config = dict()
     for key, value in cfg.items():
+        # NOTE: 配置文件由子字典组成, 将它们展平
         for k,v in value.items():
             config[k] = v
 

@@ -4,23 +4,41 @@ Scripts for pairwise registration demo
 Author: Shengyu Huang
 Last modified: 22.02.2021
 """
-import os, torch, time, shutil, json,glob,sys,copy, argparse
-import numpy as np
-from easydict import EasyDict as edict
-from torch.utils.data import Dataset
-from torch import optim, nn
-import open3d as o3d
+import argparse
+import copy
+import glob
+import json
+import os
+import shutil
+import sys
+import time
 
+import numpy as np
+import open3d as o3d
+import torch
+from easydict import EasyDict as edict
+from torch import nn, optim
+from torch.utils.data import Dataset
+
+# NOTE: 把当前工作目录(项目根目录)添加到 path 中,这样可以导入其他模块
 cwd = os.getcwd()
 sys.path.append(cwd)
-from datasets.indoor import IndoorDataset
-from datasets.dataloader import get_dataloader
-from models.architectures import KPFCNN
-from lib.utils import load_obj, setup_seed,natural_key, load_config
-from lib.benchmark_utils import ransac_pose_estimation, to_o3d_pcd, get_blue, get_yellow, to_tensor
-from lib.trainer import Trainer
-from lib.loss import MetricLoss
 import shutil
+
+from datasets.dataloader import get_dataloader
+from datasets.indoor import IndoorDataset
+from lib.benchmark_utils import (
+    get_blue,
+    get_yellow,
+    ransac_pose_estimation,
+    to_o3d_pcd,
+    to_tensor,
+)
+from lib.loss import MetricLoss
+from lib.trainer import Trainer
+from lib.utils import load_config, load_obj, natural_key, setup_seed
+from models.architectures import KPFCNN
+
 setup_seed(0)
 
 
@@ -89,7 +107,7 @@ def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_sal
     rot, trans = to_tensor(tsfm[:3,:3]), to_tensor(tsfm[:3,3][:,None])
     src_overlap = src_overlap[:,None].repeat(1,3).numpy()
     tgt_overlap = tgt_overlap[:,None].repeat(1,3).numpy()
-    src_overlap_color = lighter(get_yellow(), 1 - src_overlap)
+    src_overlap_color = lighter(get_yellow(), 1 - src_overlap) # 预测的重叠区域才上色
     tgt_overlap_color = lighter(get_blue(), 1 - tgt_overlap)
     src_pcd_overlap = copy.deepcopy(src_pcd_before)
     src_pcd_overlap.transform(tsfm)
@@ -99,8 +117,20 @@ def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_sal
 
     ########################################
     # 3. draw registrations
+
     src_pcd_after = copy.deepcopy(src_pcd_before)
     src_pcd_after.transform(tsfm)
+    # save raw data:
+    from workaround import save
+    save(
+        src_pcd_before=src_pcd_before,
+        tgt_pcd_before=tgt_pcd_before,
+        src_pcd_overlap=src_pcd_overlap,
+        tgt_pcd_overlap=tgt_pcd_overlap,
+        src_pcd_after=src_pcd_after,
+    )
+    print("skip visualization as wsl cannot display, saved data to pickle file.")
+    return
 
     vis1 = o3d.visualization.Visualizer()
     vis1.create_window(window_name='Input', width=960, height=540, left=0, top=0)
@@ -142,10 +172,12 @@ def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_sal
 
 
 def main(config, demo_loader):
-    config.model.eval()
+    config.model.eval() # NOTE: 调整到评估模式, 会禁用BN和Dropout
     c_loader_iter = demo_loader.__iter__()
-    with torch.no_grad():
-        inputs = c_loader_iter.next()
+    with torch.no_grad(): # 禁用梯度计算
+        # NOTE: 取出一项数据 (实际上 demo_loader 只有一项数据)
+        # NOTE: 数据格式可以参见 `collate_fn_descriptor`
+        inputs = next(c_loader_iter)
         ##################################
         # load inputs to device.
         for k, v in inputs.items():  
@@ -157,11 +189,13 @@ def main(config, demo_loader):
         ###############################################
         # forward pass
         feats, scores_overlap, scores_saliency = config.model(inputs)  #[N1, C1], [N2, C2]
-        pcd = inputs['points'][0]
+        # NOTE: feats: (N1+N2, 3); scores_overlap: (N1+N2, 1); scores_saliency: (N1+N2, 1)
+        pcd = inputs['points'][0] # (N1+N2, 3)
         len_src = inputs['stack_lengths'][0][0]
         c_rot, c_trans = inputs['rot'], inputs['trans']
         correspondence = inputs['correspondences']
-        
+
+        # (N1, 3), (N2, 3) 分别取出 source 和 target 的 pcd, feats, overlap, saliency
         src_pcd, tgt_pcd = pcd[:len_src], pcd[len_src:]
         src_raw = copy.deepcopy(src_pcd)
         tgt_raw = copy.deepcopy(tgt_pcd)
@@ -171,11 +205,15 @@ def main(config, demo_loader):
 
         ########################################
         # do probabilistic sampling guided by the score
+        # NOTE: 我的理解: 根据重叠分数以及匹配得分共同获得一个分数, 我们希望采样更大概率是重叠区域的点
         src_scores = src_overlap * src_saliency
         tgt_scores = tgt_overlap * tgt_saliency
 
+        # 根据 scores 对处理的点进行降采样
         if(src_pcd.size(0) > config.n_points):
             idx = np.arange(src_pcd.size(0))
+            # NOTE: np.random.choice 传入的概率序列之和必须为 1, 故这里手动归一化
+            # NOTE: flatten 用于将 tensor 展成一维, 不过本来就是一维
             probs = (src_scores / src_scores.sum()).numpy().flatten()
             idx = np.random.choice(idx, size= config.n_points, replace=False, p=probs)
             src_pcd, src_feats = src_pcd[idx], src_feats[idx]
@@ -187,7 +225,7 @@ def main(config, demo_loader):
 
         ########################################
         # run ransac and draw registration
-        tsfm = ransac_pose_estimation(src_pcd, tgt_pcd, src_feats, tgt_feats, mutual=False)
+        tsfm = ransac_pose_estimation(src_pcd, tgt_pcd, src_feats, tgt_feats, mutual=True)
         draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_saliency, tgt_saliency, tsfm)
 
 
@@ -197,12 +235,13 @@ if __name__ == '__main__':
     parser.add_argument('config', type=str, help= 'Path to the config file.')
     args = parser.parse_args()
     config = load_config(args.config)
-    config = edict(config)
+    config = edict(config) # 通过 . 访问配置
+
     if config.gpu_mode:
         config.device = torch.device('cuda')
     else:
         config.device = torch.device('cpu')
-    
+
     # model initialization
     config.architecture = [
         'simple',
@@ -217,11 +256,19 @@ if __name__ == '__main__':
         config.architecture.append('unary')
     config.architecture.append('nearest_upsample')
     config.architecture.append('last_unary')
+    # NOTE: 大致定义了一个 Encoder-Decoder, 如果 nym_layers = 4, 最后有 17 层
     config.model = KPFCNN(config).to(config.device)
-    
+
     # create dataset and dataloader
-    info_train = load_obj(config.train_info)
+    # NOTE: train_info 是存储了训练集数据信息的 pickle 文件
+    # ['src': list of 原始点云 .pth 文件路径,
+    # 'tgt' : list of 目标点云 .pth 文件路径,
+    # 'rot' : 旋转矩阵 ndarray,
+    # 'trans': 平移向量 ndarray,
+    # 'overlap': 重叠率 ndarray]
+    info_train = load_obj(config.train_info) # 训练数据的信息
     train_set = IndoorDataset(info_train,config,data_augmentation=True)
+    # NOTE: 用于演示的数据集, 只有一条数据, 只有 src 和 tgt 点云两个有效数据, 从 .pth 加载 (N, 3) tensor
     demo_set = ThreeDMatchDemo(config, config.src_pcd, config.tgt_pcd)
 
     _, neighborhood_limits = get_dataloader(dataset=train_set,
@@ -229,6 +276,8 @@ if __name__ == '__main__':
                                         shuffle=True,
                                         num_workers=config.num_workers,
                                         )
+    # NOTE: 这里 neighborhood_limits 是根据训练数据集处理得到的一个东西, 具体没看明白, 它用来辅助 demo_set 的加载
+    # NOTE: neighborhood_limits = np.array([38, 36, 36, 38]) 看起来是根据统计数据 hist 获得的一个判断邻域的阈值?
     demo_loader, _ = get_dataloader(dataset=demo_set,
                                         batch_size=config.batch_size,
                                         shuffle=False,

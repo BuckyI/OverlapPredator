@@ -26,7 +26,7 @@ def uniform_2_sphere(num: int = None):
     if num is not None:
         phi = np.random.uniform(0.0, 2 * np.pi, num)
         cos_theta = np.random.uniform(-1.0, 1.0, num)
-    else:
+    else: # 相当于 num = 1
         phi = np.random.uniform(0.0, 2 * np.pi)
         cos_theta = np.random.uniform(-1.0, 1.0)
 
