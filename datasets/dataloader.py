@@ -1,14 +1,16 @@
-import open3d as o3d
-import numpy as np
 from functools import partial
+
+import numpy as np
+import open3d as o3d
 import torch
-import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+
 import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
-from lib.timer import Timer
-from lib.utils import load_obj, natural_key
+import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
 from datasets.indoor import IndoorDataset
 from datasets.kitti import KITTIDataset
-from datasets.modelnet import get_train_datasets, get_test_datasets
+from datasets.modelnet import get_test_datasets, get_train_datasets
+from lib.timer import Timer
+from lib.utils import load_obj, natural_key
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
@@ -51,6 +53,7 @@ def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=Non
                                                                               verbose=verbose)
         return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_features), torch.from_numpy(s_labels)
 
+
 def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_neighbors):
     """
     Computes neighbors for a batch of queries and supports, apply radius search
@@ -67,25 +70,41 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
         return torch.from_numpy(neighbors[:, :max_neighbors])
     else:
         return torch.from_numpy(neighbors)
-    
+
+
 def collate_fn_descriptor(list_data, config, neighborhood_limits):
     "NOTE: 对 batch data 进行预处理"
     batched_points_list = []
     batched_features_list = []
     batched_lengths_list = []
     assert len(list_data) == 1
-    
-    for ind, (src_pcd,tgt_pcd,src_feats,tgt_feats,rot,trans,matching_inds, src_pcd_raw, tgt_pcd_raw, sample) in enumerate(list_data):
+
+    for ind, (
+        src_pcd,
+        tgt_pcd,
+        src_feats,
+        tgt_feats,
+        rot,
+        trans,
+        matching_inds,
+        src_pcd_raw,
+        tgt_pcd_raw,
+        sample,
+    ) in enumerate(list_data):
         batched_points_list.append(src_pcd)
         batched_points_list.append(tgt_pcd)
         batched_features_list.append(src_feats)
         batched_features_list.append(tgt_feats)
         batched_lengths_list.append(len(src_pcd))
         batched_lengths_list.append(len(tgt_pcd))
-    
+
     batched_features = torch.from_numpy(np.concatenate(batched_features_list, axis=0))
     batched_points = torch.from_numpy(np.concatenate(batched_points_list, axis=0))
     batched_lengths = torch.from_numpy(np.array(batched_lengths_list)).int()
+    # NOTE:
+    # batched_points (N1+N2, 3)
+    # batched_features (N1+N2, 1) 在本代码仓库下，全为 1
+    # batched_lengths (2, )
 
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
@@ -104,13 +123,13 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     for block_i, block in enumerate(config.architecture):
 
         # Stop when meeting a global pooling or upsampling
-        if 'global' in block or 'upsample' in block:
+        if "global" in block or "upsample" in block:
             break
 
         # Get all blocks of the layer
-        if not ('pool' in block or 'strided' in block):
+        if not ("pool" in block or "strided" in block):
             layer_blocks += [block]
-            if block_i < len(config.architecture) - 1 and not ('upsample' in config.architecture[block_i + 1]):
+            if block_i < len(config.architecture) - 1 and not ("upsample" in config.architecture[block_i + 1]):
                 continue
 
         # Convolution neighbors indices
@@ -118,11 +137,18 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
 
         if layer_blocks:
             # Convolutions are done in this layer, compute the neighbors with the good radius
-            if np.any(['deformable' in blck for blck in layer_blocks[:-1]]):
+            if np.any(["deformable" in blck for blck in layer_blocks[:-1]]):
                 r = r_normal * config.deform_radius / config.conv_radius
             else:
                 r = r_normal
-            conv_i = batch_neighbors_kpconv(batched_points, batched_points, batched_lengths, batched_lengths, r, neighborhood_limits[layer])
+            conv_i = batch_neighbors_kpconv(
+                batched_points,
+                batched_points,
+                batched_lengths,
+                batched_lengths,
+                r,
+                neighborhood_limits[layer],
+            )
 
         else:
             # This layer only perform pooling, no neighbors required
@@ -132,7 +158,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
         # *************************
 
         # If end of layer is a pooling operation
-        if 'pool' in block or 'strided' in block:
+        if "pool" in block or "strided" in block:
 
             # New subsampling length
             dl = 2 * r_normal / config.conv_radius
@@ -141,14 +167,14 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
             pool_p, pool_b = batch_grid_subsampling_kpconv(batched_points, batched_lengths, sampleDl=dl)
 
             # Radius of pooled neighbors
-            if 'deformable' in block:
+            if "deformable" in block:
                 r = r_normal * config.deform_radius / config.conv_radius
             else:
                 r = r_normal
 
             # Subsample indices
             pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r, neighborhood_limits[layer])
-            
+
             # Upsample indices (with the radius of the next layer to keep wanted density)
             up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r, neighborhood_limits[layer])
 
@@ -179,24 +205,25 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     # Return inputs
     ###############
     dict_inputs = {
-        'points': input_points,
-        'neighbors': input_neighbors,
-        'pools': input_pools,
-        'upsamples': input_upsamples,
-        'features': batched_features.float(),
-        'stack_lengths': input_batches_len,
-        'rot': torch.from_numpy(rot),
-        'trans': torch.from_numpy(trans),
-        'correspondences': matching_inds,
-        'src_pcd_raw': torch.from_numpy(src_pcd_raw).float(),
-        'tgt_pcd_raw': torch.from_numpy(tgt_pcd_raw).float(),
-        'sample': sample
+        "points": input_points,
+        "neighbors": input_neighbors,
+        "pools": input_pools,
+        "upsamples": input_upsamples,
+        "features": batched_features.float(),
+        "stack_lengths": input_batches_len,
+        "rot": torch.from_numpy(rot),
+        "trans": torch.from_numpy(trans),
+        "correspondences": matching_inds,
+        "src_pcd_raw": torch.from_numpy(src_pcd_raw).float(),
+        "tgt_pcd_raw": torch.from_numpy(tgt_pcd_raw).float(),
+        "sample": sample,
     }
 
     return dict_inputs
 
+
 def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_threshold=2000):
-    timer = Timer() # NOTE: 测量运行时间
+    timer = Timer()  # NOTE: 测量运行时间
     last_display = timer.total_time
 
     # From config parameter, compute higher bound of neighbors number in a neighborhood
@@ -209,7 +236,7 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
         batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
 
         # update histogram
-        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in batched_input['neighbors']]
+        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in batched_input["neighbors"]]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighb_hists += np.vstack(hists)
         timer.toc()
@@ -225,24 +252,25 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
     percentiles = np.sum(cumsum < (keep_ratio * cumsum[hist_n - 1, :]), axis=0)
 
     neighborhood_limits = percentiles
-    print('\n')
+    print("\n")
 
     return neighborhood_limits
 
+
 def get_datasets(config):
-    if(config.dataset=='indoor'):
+    if config.dataset == "indoor":
         info_train = load_obj(config.train_info)
         info_val = load_obj(config.val_info)
-        info_benchmark = load_obj(f'configs/indoor/{config.benchmark}.pkl')
+        info_benchmark = load_obj(f"configs/indoor/{config.benchmark}.pkl")
 
-        train_set = IndoorDataset(info_train,config,data_augmentation=True)
-        val_set = IndoorDataset(info_val,config,data_augmentation=False)
-        benchmark_set = IndoorDataset(info_benchmark,config, data_augmentation=False)
-    elif(config.dataset == 'kitti'):
-        train_set = KITTIDataset(config,'train',data_augmentation=True)
-        val_set = KITTIDataset(config,'val',data_augmentation=False)
-        benchmark_set = KITTIDataset(config, 'test',data_augmentation=False)
-    elif(config.dataset=='modelnet'):
+        train_set = IndoorDataset(info_train, config, data_augmentation=True)
+        val_set = IndoorDataset(info_val, config, data_augmentation=False)
+        benchmark_set = IndoorDataset(info_benchmark, config, data_augmentation=False)
+    elif config.dataset == "kitti":
+        train_set = KITTIDataset(config, "train", data_augmentation=True)
+        val_set = KITTIDataset(config, "val", data_augmentation=False)
+        benchmark_set = KITTIDataset(config, "test", data_augmentation=False)
+    elif config.dataset == "modelnet":
         train_set, val_set = get_train_datasets(config)
         benchmark_set = get_test_datasets(config)
     else:
@@ -251,12 +279,14 @@ def get_datasets(config):
     return train_set, val_set, benchmark_set
 
 
-
 def get_dataloader(dataset, batch_size=1, num_workers=4, shuffle=True, neighborhood_limits=None):
     if neighborhood_limits is None:
         # NOTE: 对数据集的数据进行预处理,具体干什么没看懂 (20240622)
         neighborhood_limits = calibrate_neighbors(dataset, dataset.config, collate_fn=collate_fn_descriptor)
     print("neighborhood:", neighborhood_limits)
+
+    # NOTE: 在所有的配置文件中， batch_size 都设为了 1，即一次只取出一个点云，
+    # 而且 collate_fn_descriptor 也 assert 数据长度为 1
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -264,10 +294,10 @@ def get_dataloader(dataset, batch_size=1, num_workers=4, shuffle=True, neighborh
         num_workers=num_workers,
         # https://discuss.pytorch.org/t/supplying-arguments-to-collate-fn/25754/4
         collate_fn=partial(collate_fn_descriptor, config=dataset.config, neighborhood_limits=neighborhood_limits),
-        drop_last=False
+        drop_last=False,
     )
     return dataloader, neighborhood_limits
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

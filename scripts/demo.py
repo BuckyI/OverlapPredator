@@ -74,8 +74,8 @@ class ThreeDMatchDemo(Dataset):
         # src_pcd = np.array(src_pcd.points).astype(np.float32)
         # tgt_pcd = np.array(tgt_pcd.points).astype(np.float32)
 
-        src_feats = np.ones_like(src_pcd[:, :1]).astype(np.float32)
-        tgt_feats = np.ones_like(tgt_pcd[:, :1]).astype(np.float32)
+        src_feats = np.ones_like(src_pcd[:, :1]).astype(np.float32)  # NOTE: (N, 1)
+        tgt_feats = np.ones_like(tgt_pcd[:, :1]).astype(np.float32)  # NOTE: (N, 1)
 
         # fake the ground truth information
         rot = np.eye(3).astype(np.float32)
