@@ -243,6 +243,7 @@ if __name__ == '__main__':
         config.device = torch.device('cpu')
 
     # model initialization
+    # NOTE: 实际上是 configs/models.py -> architectures['indoor']
     config.architecture = [
         'simple',
         'resnetb',
