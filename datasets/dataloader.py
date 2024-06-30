@@ -73,11 +73,25 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 
 def collate_fn_descriptor(list_data, config, neighborhood_limits):
-    "NOTE: 对 batch data 进行预处理"
+    """
+    NOTE: 对 batch data 进行预处理，其实只是处理一条数据
+    数据格式：
+        src_pcd: (N1, 3) 用于匹配的 source pcd
+        tgt_pcd: (N2, 3) 用于匹配的 target pcd
+        src_feats: ones (N1, 1)
+        tgt_feats: ones (N2, 1)
+        rot: GT 旋转
+        trans: GT 平移
+        matching_inds: correspondences (M, 2) 根据 GT transformation 以及 KDTree 查找一定半径内的视为匹配点得到的.
+        src_pcd_raw: 原始 source pcd, 没有经过数据增强
+        tgt_pcd_raw: 原始 target pcd, 没有经过数据增强
+        sample: torch.ones(1), 意义不明
+
+    """
     batched_points_list = []
     batched_features_list = []
     batched_lengths_list = []
-    assert len(list_data) == 1
+    assert len(list_data) == 1  # 只处理一条数据
 
     for ind, (
         src_pcd,
@@ -106,6 +120,10 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     # batched_features (N1+N2, 1) 在本代码仓库下，全为 1
     # batched_lengths (2, )
 
+    # NOTE: 下面的代码看起来,是根据网络的结构进行预处理,
+    # 因为网络的 KPConv Encoder 部分涉及到对点进行降采样, 所以计算了相应的索引以及点云
+    # 在 models/blocks.py 的 forward 方法中可以看到相应查询
+
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
 
@@ -114,10 +132,11 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     layer = 0
 
     # Lists of inputs
-    input_points = []
-    input_neighbors = []
-    input_pools = []
-    input_upsamples = []
+    # NOTE: list 长度等于 config.architecture 中 Encoder 的 block 数
+    input_points = []  # 第 i 层的 pcd
+    input_neighbors = []  # 第 i 层查询 pcd 邻居的索引
+    input_pools = []  # (Encoder)第 i 层对 pcd 进行 pooling / subsampling / 降采样的索引 (只有为 pool/strided 层才有效)
+    input_upsamples = []  # (Decoder)第 i 层对 pcd 进行 upsampling / 上采样的索引
     input_batches_len = []
 
     for block_i, block in enumerate(config.architecture):
@@ -135,12 +154,13 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
         # Convolution neighbors indices
         # *****************************
 
-        if layer_blocks:
+        if layer_blocks:  # NOTE: not ("pool" in block or "strided" in block)
             # Convolutions are done in this layer, compute the neighbors with the good radius
             if np.any(["deformable" in blck for blck in layer_blocks[:-1]]):
                 r = r_normal * config.deform_radius / config.conv_radius
             else:
                 r = r_normal
+            # NOTE: 计算了点的 neighbors
             conv_i = batch_neighbors_kpconv(
                 batched_points,
                 batched_points,
@@ -150,7 +170,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
                 neighborhood_limits[layer],
             )
 
-        else:
+        else:  # NOTE: ("pool" in block or "strided" in block)
             # This layer only perform pooling, no neighbors required
             conv_i = torch.zeros((0, 1), dtype=torch.int64)
 
@@ -164,6 +184,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
             dl = 2 * r_normal / config.conv_radius
 
             # Subsampled points
+            # NOTE: 对 batched_points 进行降采样, 获得 pool_p 点, pool_b 长度
             pool_p, pool_b = batch_grid_subsampling_kpconv(batched_points, batched_lengths, sampleDl=dl)
 
             # Radius of pooled neighbors
@@ -173,9 +194,11 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
                 r = r_normal
 
             # Subsample indices
+            # NOTE: 计算了将 batched_points 降采样到 pool_p 对应的 neighbors index
             pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r, neighborhood_limits[layer])
 
             # Upsample indices (with the radius of the next layer to keep wanted density)
+            # NOTE: 计算了将 pool_p 上采样恢复为 batched_points 对应的 neighbors index
             up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r, neighborhood_limits[layer])
 
         else:
@@ -227,8 +250,8 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
     last_display = timer.total_time
 
     # From config parameter, compute higher bound of neighbors number in a neighborhood
-    hist_n = int(np.ceil(4 / 3 * np.pi * (config.deform_radius + 1) ** 3))
-    neighb_hists = np.zeros((config.num_layers, hist_n), dtype=np.int32)
+    hist_n = int(np.ceil(4 / 3 * np.pi * (config.deform_radius + 1) ** 3))  # NOTE: 4/3 * pi * (r+1)^3 为球体积
+    neighb_hists = np.zeros((config.num_layers, hist_n), dtype=np.int32)  # 统计 Encoder 每层的 histogram
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
@@ -236,9 +259,10 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
         batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
 
         # update histogram
+        # NOTE: neighb_mat (N, 84) 存储了点的邻居索引, 因为邻居数目不定, 空缺地方用 N 填上了, 所以这里计算的是每个点的邻居数
         counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in batched_input["neighbors"]]
-        hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
-        neighb_hists += np.vstack(hists)
+        hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]  # np.bincount 计算非负整数数组中每个值的出现次数
+        neighb_hists += np.vstack(hists)  # 将当前点云对的邻居数目统计添加到 neighb_hists 中
         timer.toc()
 
         if timer.total_time - last_display > 0.1:
@@ -246,10 +270,12 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
             print(f"Calib Neighbors {i:08d}: timings {timer.total_time:4.2f}s")
 
         if np.min(np.sum(neighb_hists, axis=1)) > samples_threshold:
+            # NOTE: 统计的数目足够多后,认为可以获得准确的邻居数目分布
             break
 
-    cumsum = np.cumsum(neighb_hists.T, axis=0)
+    cumsum = np.cumsum(neighb_hists.T, axis=0)  # 累加, 获得邻居数目累积(分布)
     percentiles = np.sum(cumsum < (keep_ratio * cumsum[hist_n - 1, :]), axis=0)
+    # keep_ratio=0.8, 统计上来看, 80% 的点都具有这么多邻域, 将这个值设为了最大邻域数, 该参数主要影响了后面 batch_neighbors_kpconv 返回的最大邻域点数目
 
     neighborhood_limits = percentiles
     print("\n")
@@ -281,7 +307,8 @@ def get_datasets(config):
 
 def get_dataloader(dataset, batch_size=1, num_workers=4, shuffle=True, neighborhood_limits=None):
     if neighborhood_limits is None:
-        # NOTE: 对数据集的数据进行预处理,具体干什么没看懂 (20240622)
+        # NOTE: 对数据集的数据进行预处理, 主要是统计了数据集中, 点云对中, 每个点的邻居点数目是什么分布
+        # neighborhood_limits = [38 36 36 38] 代表了在 Encoder 的 4 层中, 大部分点的邻居数目, 其实区别也不是很大...
         neighborhood_limits = calibrate_neighbors(dataset, dataset.config, collate_fn=collate_fn_descriptor)
     print("neighborhood:", neighborhood_limits)
 
