@@ -245,6 +245,126 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     return dict_inputs
 
 
+def preporcess(data, config, neighborhood_limits=(38, 36, 36, 38)):
+    """
+    Preprocess: turn data into dict that forward needed (仅限推理)
+    non-batched version of collate_fn_descriptor
+    """
+    source, target = data
+    points = torch.tensor(np.concatenate([source, target], axis=0))
+    lengths = torch.tensor([len(source), len(target)], dtype=torch.int32)
+
+    # Starting radius of convolutions
+    r_normal = config.first_subsampling_dl * config.conv_radius
+
+    # Starting layer
+    layer_blocks = []
+    layer = 0
+
+    # Lists of inputs
+    input_points = []  # 第 i 层的 pcd
+    input_neighbors = []  # 第 i 层查询 pcd 邻居的索引
+    input_pools = []  # (Encoder)第 i 层对 pcd 进行 pooling / subsampling / 降采样的索引 (只有为 pool/strided 层才有效)
+    input_upsamples = []  # (Decoder)第 i 层对 pcd 进行 upsampling / 上采样的索引
+    input_batches_len = []
+
+    for block_i, block in enumerate(config.architecture):
+        # Stop when meeting a global pooling or upsampling
+        if "global" in block or "upsample" in block:
+            break
+
+        # Get all blocks of the layer
+        if not ("pool" in block or "strided" in block):
+            layer_blocks += [block]
+            if block_i < len(config.architecture) - 1 and not ("upsample" in config.architecture[block_i + 1]):
+                continue
+
+        # Convolution neighbors indices
+        # *****************************
+
+        if layer_blocks:  # NOTE: not ("pool" in block or "strided" in block)
+            # Convolutions are done in this layer, compute the neighbors with the good radius
+            if np.any(["deformable" in blck for blck in layer_blocks[:-1]]):
+                r = r_normal * config.deform_radius / config.conv_radius
+            else:
+                r = r_normal
+            # NOTE: 计算了点的 neighbors
+            conv_i = batch_neighbors_kpconv(
+                points,
+                points,
+                lengths,
+                lengths,
+                r,
+                neighborhood_limits[layer],
+            )
+
+        else:  # NOTE: ("pool" in block or "strided" in block)
+            # This layer only perform pooling, no neighbors required
+            conv_i = torch.zeros((0, 1), dtype=torch.int64)
+
+        # Pooling neighbors indices
+        # *************************
+
+        # If end of layer is a pooling operation
+        if "pool" in block or "strided" in block:
+
+            # New subsampling length
+            dl = 2 * r_normal / config.conv_radius
+
+            # Subsampled points
+            # NOTE: 对 batched_points 进行降采样, 获得 pool_p 点, pool_b 长度
+            pool_p, pool_b = batch_grid_subsampling_kpconv(points, lengths, sampleDl=dl)
+
+            # Radius of pooled neighbors
+            if "deformable" in block:
+                r = r_normal * config.deform_radius / config.conv_radius
+            else:
+                r = r_normal
+
+            # Subsample indices
+            # NOTE: 计算了将 batched_points 降采样到 pool_p 对应的 neighbors index
+            pool_i = batch_neighbors_kpconv(pool_p, points, pool_b, lengths, r, neighborhood_limits[layer])
+
+            # Upsample indices (with the radius of the next layer to keep wanted density)
+            # NOTE: 计算了将 pool_p 上采样恢复为 batched_points 对应的 neighbors index
+            up_i = batch_neighbors_kpconv(points, pool_p, lengths, pool_b, 2 * r, neighborhood_limits[layer])
+
+        else:
+            # No pooling in the end of this layer, no pooling indices required
+            pool_i = torch.zeros((0, 1), dtype=torch.int64)
+            pool_p = torch.zeros((0, 3), dtype=torch.float32)
+            pool_b = torch.zeros((0,), dtype=torch.int64)
+            up_i = torch.zeros((0, 1), dtype=torch.int64)
+
+        # Updating input lists
+        input_points += [points.float()]
+        input_neighbors += [conv_i.long()]
+        input_pools += [pool_i.long()]
+        input_upsamples += [up_i.long()]
+        input_batches_len += [lengths]
+
+        # New points for next layer
+        points = pool_p
+        lengths = pool_b
+
+        # Update radius and reset blocks
+        r_normal *= 2
+        layer += 1
+        layer_blocks = []
+
+    # move device 不能在最开始放到 GPU 中, 是因为需要使用 cpp_warpper...
+    features = torch.ones((len(source) + len(target), 1), dtype=torch.float32, device=config.device)
+    to_device = lambda ls: [item.to(config.device) for item in ls]
+    return {
+        "points": to_device(input_points),
+        "neighbors": to_device(input_neighbors),
+        "pools": to_device(input_pools),
+        "upsamples": to_device(input_upsamples),
+        "stack_lengths": to_device(input_batches_len),
+        "features": features,
+    }
+
+
 def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_threshold=2000):
     timer = Timer()  # NOTE: 测量运行时间
     last_display = timer.total_time
