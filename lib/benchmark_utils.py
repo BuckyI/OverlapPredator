@@ -238,6 +238,32 @@ def ransac_pose_estimation(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False,
 
     return result_ransac.transformation
 
+def ransac_reigistration(src_pcd, tgt_pcd, src_feat, tgt_feat, mutual = False, distance_threshold = 0.05, ransac_n = 3):
+    "return registration result (with evaluation)"
+    src_pcd = to_o3d_pcd(src_pcd)
+    tgt_pcd = to_o3d_pcd(tgt_pcd)
+    src_feats = to_o3d_feats(src_feat)
+    tgt_feats = to_o3d_feats(tgt_feat)
+
+    # NOTE: registration_ransac_based_on_feature_matching 本身就带 mutual 参数, 可能这个函数写的时候还不带, 所以自己实现了一个 mutual
+    result_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+        src_pcd,
+        tgt_pcd,
+        src_feats,
+        tgt_feats,
+        mutual,  # Enables mutual filter such that the correspondence of the source point’s correspondence is itself.
+        distance_threshold,  # Maximum correspondence points-pair distance.
+        o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+        ransac_n,
+        [
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold),
+        ],
+        o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000),
+    )
+
+    return result_ransac
+
 def get_inlier_ratio(src_pcd, tgt_pcd, src_feat, tgt_feat, rot, trans, inlier_distance_threshold = 0.1):
     """
     Compute inlier ratios with and without mutual check, return both
