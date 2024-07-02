@@ -85,7 +85,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
         matching_inds: correspondences (M, 2) 根据 GT transformation 以及 KDTree 查找一定半径内的视为匹配点得到的.
         src_pcd_raw: 原始 source pcd, 没有经过数据增强
         tgt_pcd_raw: 原始 target pcd, 没有经过数据增强
-        sample: torch.ones(1), 意义不明
+        sample: torch.ones(1), 意义不明. 只有对 modelnet 数据集, 返回的是 sample 原始数据
 
     """
     batched_points_list = []
