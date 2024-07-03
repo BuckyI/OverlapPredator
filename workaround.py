@@ -31,8 +31,29 @@ class PointCloud(Transformer):
         return pcd
 
 
+class RegistrationResult(Transformer):
+    @staticmethod
+    def encode(data):
+        return {
+            "correspondence_set": np.asarray(data.correspondence_set),
+            "fitness": data.fitness,
+            "inlier_rmse": data.inlier_rmse,
+            "transformation": data.transformation,
+        }
+
+    @staticmethod
+    def decode(data):
+        result = o3d.pipelines.registration.RegistrationResult()
+        result.correspondence_set = o3d.utility.Vector2iVector(data["correspondence_set"])
+        result.fitness = data["fitness"]
+        result.inlier_rmse = data["inlier_rmse"]
+        result.transformation = data["transformation"]
+        return result
+
+
 registered = {
     o3d.geometry.PointCloud: PointCloud,
+    o3d.pipelines.registration.RegistrationResult: RegistrationResult,
 }
 
 
