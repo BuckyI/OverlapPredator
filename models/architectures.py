@@ -143,8 +143,9 @@ class KPFCNN(nn.Module):
         x = batch["features"].clone().detach()  # NOTE: 获得一个不跟踪梯度的副本
         len_src_c = batch["stack_lengths"][-1][0]
         len_src_f = batch["stack_lengths"][0][0]
-        pcd_c = batch["points"][-1]
+        pcd_c = batch["points"][-1]  # NOTE: 取出的最后一层的点云，这部分用在了 gnn 那部分
         pcd_f = batch["points"][0]
+        # NOTE: 这两个 pcd 是 Encoder 最后一层最稀疏的点云，取出来作为 gnn 那部分的输入
         src_pcd_c, tgt_pcd_c = pcd_c[:len_src_c], pcd_c[len_src_c:]
 
         sigmoid = nn.Sigmoid()
@@ -155,6 +156,16 @@ class KPFCNN(nn.Module):
             if block_i in self.encoder_skips:
                 skip_x.append(x)  # NOTE: 保存当前层输出用于 skip link
             x = block_op(x, batch)
+        # NOTE: (以 indoor.yaml model 结构为例) Encoder，有 4 层，每一层都有 3 小层
+        # 这里 self.encoder_blocks 共有 11 个元素，是因为最后一小层实际上是 self.bottle 进行了降维
+        # self.encoder_skips = [2, 5, 8, 11]
+
+        # NOTE: Encoder 获取到的点云特征：
+        # 🌟 skip_x[0] --> torch.Size([69778, 128])
+        # 🌟 skip_x[1] --> torch.Size([6563, 256])
+        # 🌟 skip_x[2] --> torch.Size([1995, 512])
+        # 🌟 第四层特征 unconditioned_feats --> torch.Size([606, 256])
+        # [p.shape for p in batch["points"]] --> 每层点云点数分别为：69778, 6563, 1995, 606
 
         #################################
         # 2. project the bottleneck features
@@ -165,7 +176,8 @@ class KPFCNN(nn.Module):
         #################################
         # 3. apply GNN to communicate the features and get overlap score
         src_feats_c, tgt_feats_c = feats_c[:, :, :len_src_c], feats_c[:, :, len_src_c:]
-        # NOTE: ??? 奇怪，经过 Encoder 点的数目不是减少了吗，怎么接下来又把源点云传给了 gnn？
+        # NOTE: 这里传入的 src_feats_c 和 tgt_feats_c 是 Encoder 最后一层点云的坐标
+        # 前面不用传入，是因为 KPConv 的层会自己读取对应层的点云。
         src_feats_c, tgt_feats_c = self.gnn(
             src_pcd_c.unsqueeze(0).transpose(1, 2),
             tgt_pcd_c.unsqueeze(0).transpose(1, 2),
@@ -174,17 +186,20 @@ class KPFCNN(nn.Module):
         )
         feats_c = torch.cat([src_feats_c, tgt_feats_c], dim=-1)
 
-        feats_c = self.proj_gnn(feats_c)
-        scores_c = self.proj_score(feats_c)
+        # NOTE: 下面这俩都是 1x1 卷积
+        feats_c = self.proj_gnn(feats_c)  # 没有改变维度，可以当做 gnn 输出的最终特征 256 (1, 256, N)
+        scores_c = self.proj_score(feats_c)  # 特征从 256 到 1, 用来预测 score (1, 1, N)
 
         feats_gnn_norm = (
             F.normalize(feats_c, p=2, dim=1).squeeze(0).transpose(0, 1)
-        )  # [N, C] # NOTE: 特征的通道进行归一化处理
+        )  # [N, C], [N, 256] # NOTE: 特征的通道进行归一化处理
+        # NOTE: 🌟 GNN 输出特征
         feats_gnn_raw = feats_c.squeeze(0).transpose(0, 1)  # [N, C]
         scores_c_raw = scores_c.squeeze(0).transpose(0, 1)  # [N, 1]
 
         ####################################
         # 4. decoder part
+        # NOTE: 出于某种原因， Decoder 对 gnn 输出的特征进行了归一化
         src_feats_gnn, tgt_feats_gnn = feats_gnn_norm[:len_src_c], feats_gnn_norm[len_src_c:]
         # NOTE: 特征点积获得相似度 (N1, C) @ (N2, C)^T -> (N_1, N_2)
         inner_products = torch.matmul(src_feats_gnn, tgt_feats_gnn.transpose(0, 1))
@@ -193,10 +208,15 @@ class KPFCNN(nn.Module):
 
         # NOTE: 应该是对相似度的分布进行调整，因为 softmax 对较大的输入值无法区分
         temperature = torch.exp(self.epsilon) + 0.03
+        # NOTE: F.softmax https://pytorch.org/docs/stable/generated/torch.nn.functional.softmax.html
+        # inner_products (N_1, N_2) 代表了特征的相似度
+        # Softmax 将相似度转化为 0-1 的概率分布，沿着 dim=1，也就是说每一行之和为 1
+        # 一行 N_2 个数，为 tgt 的点数，代表了当前 src 的点最有可能和 tgt 的哪个点匹配
+        # 最后又和 tgt_scores_c 进行矩阵相乘，获得的结果就表示了：**特征相似并且重叠的概率**
         s1 = torch.matmul(F.softmax(inner_products / temperature, dim=1), tgt_scores_c)
         s2 = torch.matmul(F.softmax(inner_products.transpose(0, 1) / temperature, dim=1), src_scores_c)
         # NOTE: 总结来说，scores_saliency 是通过模型预测的 overlap score 加权得到的，权重来自于 src 和 tgt 模型编码特征的相似度
-        scores_saliency = torch.cat((s1, s2), dim=0)
+        scores_saliency = torch.cat((s1, s2), dim=0)  # [N, 1]
 
         # NOTE: RECALL:
         # scores_c_raw          重叠分数
