@@ -245,10 +245,11 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
     return dict_inputs
 
 
-def preporcess(data, config, neighborhood_limits=(38, 36, 36, 38)):
+def preporcess(data, config, neighborhood_limits=(38, 36, 36, 38), move_device=True):
     """
     Preprocess: turn data into dict that forward needed (仅限推理)
     non-batched version of collate_fn_descriptor
+    move_device: 依据 config.device 将结果移动到指定设备（GPU），默认为 True
     """
     source, target = data
     points = torch.tensor(np.concatenate([source, target], axis=0))
@@ -353,8 +354,9 @@ def preporcess(data, config, neighborhood_limits=(38, 36, 36, 38)):
         layer_blocks = []
 
     # move device 不能在最开始放到 GPU 中, 是因为需要使用 cpp_warpper...
-    features = torch.ones((len(source) + len(target), 1), dtype=torch.float32, device=config.device)
-    to_device = lambda ls: [item.to(config.device) for item in ls]
+    device = "cpu" if not move_device else config.device
+    features = torch.ones((len(source) + len(target), 1), dtype=torch.float32, device=device)
+    to_device = lambda ls: [item.to(device) for item in ls]
     return {
         "points": to_device(input_points),
         "neighbors": to_device(input_neighbors),
