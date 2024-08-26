@@ -21,6 +21,7 @@ def get_graph_feature(coords, feats, k=10):
     B, C, N = feats.size()
     dist = square_distance(coords.transpose(1, 2), coords.transpose(1, 2))
 
+    k = min(k, N - 1)  # 阻止 selected index k out of range
     idx = dist.topk(k=k + 1, dim=-1, largest=False, sorted=True)[
         1
     ]  # [B, N, K+1], here we ignore the smallest element as it's the query itself
