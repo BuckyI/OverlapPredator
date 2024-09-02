@@ -21,11 +21,10 @@ def get_graph_feature(coords, feats, k=10):
     B, C, N = feats.size()
     dist = square_distance(coords.transpose(1, 2), coords.transpose(1, 2))
 
-    k = min(k, N - 1)  # 阻止 selected index k out of range
-    idx = dist.topk(k=k + 1, dim=-1, largest=False, sorted=True)[
-        1
-    ]  # [B, N, K+1], here we ignore the smallest element as it's the query itself
-    idx = idx[:, :, 1:]  # [B, N, K]
+    idx = dist.argsort(dim=-1, descending=False, stable=True)[:, :, 1 : k + 1]  # [B, N, K+1]
+    # k = min(k, N - 1)  # 阻止 selected index k out of range
+    # idx = dist.topk(k=k + 1, dim=-1, largest=False, sorted=True)[1]
+    # [B, N, K+1], here we ignore the smallest element as it's the query itself
 
     idx = idx.unsqueeze(1).repeat(1, C, 1, 1)  # [B, C, N, K]
     all_feats = feats.unsqueeze(2).repeat(1, 1, N, 1)  # [B, C, N, N]
