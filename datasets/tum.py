@@ -1,12 +1,16 @@
+from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import NamedTuple, Optional
 
 import numpy as np
 import open3d as o3d
+import small_gicp
 from scipy.spatial.transform import Rotation as R
 
 
-class Frame(NamedTuple):
+@dataclass(frozen=True)
+class Frame:
     timestamp: float
     color_path: str
     depth_path: str
@@ -14,6 +18,49 @@ class Frame(NamedTuple):
     K: np.ndarray
     width: int
     height: int
+
+    @cached_property
+    def depth(self) -> np.ndarray:
+        return np.asarray(o3d.io.read_image(self.depth_path))
+
+    @cached_property
+    def color(self) -> np.ndarray:
+        return np.asarray(o3d.io.read_image(self.color_path))
+
+    @property
+    def o3d_point_cloud(self) -> o3d.geometry.PointCloud:
+        depth_image = o3d.io.read_image(self.depth_path)
+        intrinsic = o3d.camera.PinholeCameraIntrinsic(self.width, self.height, self.K)
+        pcd = o3d.geometry.PointCloud.create_from_depth_image(
+            depth_image, intrinsic, depth_scale=5000.0, depth_trunc=5
+        ).voxel_down_sample(voxel_size=0.01)
+        return pcd
+
+    @cached_property
+    def pcd_array(self) -> np.ndarray:
+        "normalized, unit length 1m"
+        return np.asarray(self.o3d_point_cloud.points)
+
+    @cached_property
+    def pcd_array_without_plane(self) -> np.ndarray:
+        # TODO 如果图片中没有地面怎么办？
+        pcd = self.o3d_point_cloud
+        plane_model, inliers = pcd.segment_plane(distance_threshold=0.05, ransac_n=3, num_iterations=1000)
+        outlier_cloud = pcd.select_by_index(inliers, invert=True)
+        return np.asarray(outlier_cloud.points)
+
+    @cached_property
+    def pcd_array_005(self) -> np.ndarray:
+        "low resolution pcd, unit length 1m"
+        pcd, tree = small_gicp.preprocess_points(self.pcd_array, 0.05, num_threads=5)
+        return pcd.points()[:, :3]
+
+    @cached_property
+    def pcd_array_without_plane_005(self) -> np.ndarray:
+        "low resolution pcd, unit length 1m"
+        pcd, tree = small_gicp.preprocess_points(self.pcd_array_without_plane, 0.05, num_threads=5)
+        return pcd.points()[:, :3]
+
 
 class TUMDataset:
 
