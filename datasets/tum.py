@@ -103,6 +103,9 @@ class TUMDataset:
             )
             self.frames.append(frame)
 
+        self.timestamp2frame = {f.timestamp: f for f in self.frames}
+        self.timestamps = [f.timestamp for f in self.frames]
+
 
 def load_point_cloud(frame: Frame):
     depth_image = o3d.io.read_image(frame.depth_path)
