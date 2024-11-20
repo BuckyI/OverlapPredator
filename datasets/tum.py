@@ -23,11 +23,11 @@ class TUMDataset:
         "fr3": [535.4, 539.2, 320.1, 247.6],
     }
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, calibration: str = "fr3"):
         self.path = Path(path)
         assert self.path.is_dir(), f"dataset {path} does not exist"
 
-        cal = self.calibration["fr3"]
+        cal = self.calibration[calibration]
         K = np.array([[cal[0], 0, cal[2]], [0, cal[1], cal[3]], [0, 0, 1]])
         width, height = 640, 480
 
