@@ -461,7 +461,7 @@ class KPFCNN(nn.Module):
         scores_overlap = self.regular_score(scores_overlap)
         scores_saliency = self.regular_score(scores_saliency)
 
-        # normalise point-wise features
+        # normalize point-wise features
         feats_f = F.normalize(feats_f, p=2, dim=1)
 
         return feats_f, scores_overlap, scores_saliency
