@@ -49,6 +49,17 @@ def to_tensor(data: DATA_NP, device: Union[str, torch.device] = "cpu") -> DATA_T
     }
 
 
+def to_numpy(data: DATA_TENSOR) -> DATA_NP:
+    """将 tensor 格式的数据转换为 numpy 格式，便于本地存储"""
+    result = {}
+    for k, v in data.items():
+        if isinstance(v, list):
+            result[k] = [d.cpu().numpy() for d in v]
+        else:
+            result[k] = v.cpu().numpy()
+    return result
+
+
 def merge_data(source: DATA_NP, target: DATA_NP) -> DATA_TENSOR:
     """用于从本地取出 source 和 target 数据后，合并为模型推理需要的格式和数据类型"""
     assert all(field in source for field in DATA_FIELDS), f"source data validation failed"
