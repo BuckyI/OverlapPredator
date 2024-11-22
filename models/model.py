@@ -49,6 +49,76 @@ def to_tensor(data: DATA_NP, device: Union[str, torch.device] = "cpu") -> DATA_T
     }
 
 
+def merge_data(source: DATA_NP, target: DATA_NP) -> DATA_TENSOR:
+    """用于从本地取出 source 和 target 数据后，合并为模型推理需要的格式和数据类型"""
+    assert all(field in source for field in DATA_FIELDS), f"source data validation failed"
+    assert all(field in target for field in DATA_FIELDS), f"target data validation failed"
+    s1, s2 = source, target
+
+    # fix id: 两个点云合并，则第二个点云的索引值需要添加第一个点云的长度
+    # 注意存在本身就属于无效点的索引，即 inf，但是这里不需要担心，因为它们在相加后仍然为 inf
+    offsets = np.array(s1["lengths"])
+    s2["neighbors"] = [i + j for i, j in zip(s2["neighbors"], s1["lengths"])]
+    s2["pools"] = [i + j for i, j in zip(s2["pools"], s1["lengths"])]
+    s2["upsamples"] = [i + j for i, j in zip(s2["upsamples"], np.roll(s1["lengths"], -1))]
+
+    def concatenate(l1, l2):
+        """
+        l1, l2: list[np.array] of same length
+        """
+        result = []
+        for i, j in zip(l1, l2):
+            # 有时候会出现 axis=1 维度不一致的问题，起因是 batch_neighbors_kpconv 获得的矩阵列数无法保证都为最大邻域数
+            if i.shape[1] < j.shape[1]:  # pad i
+                i = np.pad(i, ((0, 0), (0, j.shape[1] - i.shape[1])), mode="constant", constant_values=np.inf)
+            elif j.shape[1] < i.shape[1]:  # pad j
+                j = np.pad(j, ((0, 0), (0, i.shape[1] - j.shape[1])), mode="constant", constant_values=np.inf)
+            result.append(np.concatenate([i, j], axis=0))
+        return result
+
+    points = concatenate(s1["points"], s2["points"])
+    neighbors = concatenate(s1["neighbors"], s2["neighbors"])
+    pools = concatenate(s1["pools"], s2["pools"])
+    upsamples = concatenate(s1["upsamples"], s2["upsamples"])
+    stack_lengths = [np.array([i, j]) for i, j in zip(s1["lengths"], s2["lengths"])]
+    features = concatenate(s1["features"], s2["features"])
+
+    # 将无效索引（inf）替换为最大索引值 +1, 并将数据类型转换为整型
+    def fix_array(i, j):
+        return np.where(i < np.inf, i, j).astype(np.int64)
+
+    point_size = np.array([len(p) for p in points])
+    neighbors = [fix_array(i, j) for i, j in zip(neighbors, point_size)]
+    pools = [fix_array(i, j) for i, j in zip(pools, point_size)]
+    upsamples = [fix_array(i, j) for i, j in zip(upsamples, np.roll(point_size, -1))]
+
+    # 获得 tensor，保证在合适的设备和为合适的数据类型
+    def change_dtype(data, dtype=torch.float32):
+        "turn (list of) numpy to tensor on specific device"
+        if isinstance(data, np.ndarray):
+            return torch.from_numpy(data).to(device=device, dtype=dtype)
+        elif isinstance(data, list):
+            return [torch.from_numpy(i).to(device=device, dtype=dtype) for i in data]
+        raise Exception("unexpected data type", type(data))
+
+    points = change_dtype(points, torch.float32)
+    neighbors = change_dtype(neighbors, torch.int64)
+    pools = change_dtype(pools, torch.int64)
+    upsamples = change_dtype(upsamples, torch.int64)
+    stack_lengths = change_dtype(stack_lengths, torch.int32)
+    features = change_dtype(features, torch.float32)
+
+    result = {
+        "points": points,
+        "neighbors": neighbors,
+        "pools": pools,
+        "upsamples": upsamples,
+        "stack_lengths": stack_lengths,
+        "features": features,
+    }
+    return result
+
+
 def split_data(array, length: int, func: Optional[Callable] = None):
     """方便从模型推理数据中分割出 source 和 target 的数据，通过 func 预处理"""
     if func is None:
