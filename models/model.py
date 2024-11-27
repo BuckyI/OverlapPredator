@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import open3d as o3d
+import small_gicp
 import torch
 from loguru import logger
 
 from datasets.dataloader import batch_grid_subsampling_kpconv, batch_neighbors_kpconv
+from lib.benchmark_utils import to_o3d_feats, to_o3d_pcd
 
 # 原始代码预处理、模型推理需要 tensor 类型的数据
 DATA_TENSOR = Dict[str, Union[torch.Tensor, List[torch.Tensor]]]
@@ -366,3 +369,71 @@ class Model:
         data["scores_overlap"] = scores_overlap
         data["scores_saliency"] = scores_saliency
         return data
+
+    def registration(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+        """
+        source: source points
+        target: target points
+        return: transformation from source to target
+        """
+        data = self.encode_decode(source, target)
+        len_src = int(data["stack_lengths"][0][0])
+        src_pcd, tgt_pcd = split_data(data["points"][0], len_src)
+        src_feats, tgt_feats = split_data(data["final_feature"], len_src)
+        src_overlap, tgt_overlap = split_data(data["scores_overlap"], len_src)
+        src_saliency, tgt_saliency = split_data(data["scores_saliency"], len_src)
+
+        def _downsample_improved(pcd, feats, scores, max_points=1000):
+            # NOTE: 论文中采样数为 1000 时效果最好
+            max_points = min(max_points, pcd.size(0))
+            # assert max_points > 0
+            sample_id: torch.Tensor = torch.multinomial(scores, max_points, replacement=False)
+            sampled_pcd = pcd[sample_id]
+            sampled_feats = feats[sample_id]
+            sampled_scores = scores[sample_id]
+            return (
+                sample_id.cpu().numpy(),
+                sampled_pcd.cpu().numpy(),
+                sampled_feats.cpu().numpy(),
+                sampled_scores,
+            )  #  衡量采样结果的 confidence
+
+        src_scores = src_overlap * src_saliency  # source length
+        tgt_scores = tgt_overlap * tgt_saliency  # target length
+
+        src_idx, src_pcd_down, src_feats_down, src_score_down = _downsample_improved(src_pcd, src_feats, src_scores)
+        tgt_idx, tgt_pcd_down, tgt_feats_down, tgt_score_down = _downsample_improved(tgt_pcd, tgt_feats, tgt_scores)
+
+        # feature based ransac registration
+        # NOTE: registration_ransac_based_on_feature_matching 本身就带 mutual 参数, 可能这个函数写的时候还不带, 所以自己实现了一个 mutual
+        result_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+            to_o3d_pcd(src_pcd_down),
+            to_o3d_pcd(tgt_pcd_down),
+            to_o3d_feats(src_feats_down),
+            to_o3d_feats(tgt_feats_down),
+            True,  # Enables mutual filter such that the correspondence of the source point’s correspondence is itself.
+            0.05,  # Maximum correspondence points-pair distance.
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+            3,  # ransac_n
+            [
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(0.05),
+            ],
+            o3d.pipelines.registration.RANSACConvergenceCriteria(50000, 1000),
+        )
+
+        # small gicp refine
+        T = result_ransac.transformation
+        for s in (0.25, 0.1, 0.02):
+            reg_res = small_gicp.align(
+                tgt_pcd_down,
+                src_pcd_down,
+                init_T_target_source=T,
+                registration_type="GICP",
+                downsampling_resolution=s,
+                max_correspondence_distance=2 * s,
+                max_iterations=50,
+            )
+            T = reg_res.T_target_source
+
+        return T
