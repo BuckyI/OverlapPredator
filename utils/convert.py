@@ -1,4 +1,5 @@
 import numpy as np
+import small_gicp
 from scipy.spatial.transform import Rotation as R
 
 
@@ -24,3 +25,7 @@ def transform(source: np.ndarray, trans: np.ndarray):
     """
     source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
     return (source_homo @ trans.transpose())[..., :3]  # N, 3
+
+
+def downsample(points: np.ndarray, resolution: float) -> np.ndarray:
+    return small_gicp.voxelgrid_sampling(points, downsampling_resolution=resolution).points()[:, :3]
