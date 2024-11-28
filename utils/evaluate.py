@@ -1,7 +1,8 @@
 import numpy as np
 import small_gicp
 import torch
-from convert import transform
+
+from .convert import transform
 
 
 def get_trans_rot(t):
