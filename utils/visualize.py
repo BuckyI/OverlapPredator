@@ -1,6 +1,7 @@
-from typing import List
+from typing import Callable, List, Optional
 
 import numpy as np
+import open3d as o3d
 import pyvista
 
 
@@ -35,7 +36,7 @@ def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None):
         pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
 
 
-def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: str = None):
+def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: Optional[str] = None):
     p = pyvista.Plotter()
     # colors = np.random.randint(0, 256, size=(len(pcds), 3))
     colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
@@ -47,7 +48,7 @@ def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: str
         p.show()
 
 
-def show_pcds_parallel(*pcds: List[np.ndarray], titles: List[str] = None, point_size=1.0, color="red"):
+def show_pcds_parallel(*pcds: List[np.ndarray], titles: Optional[List[str]] = None, point_size=1.0, color="red"):
     N = len(pcds)
     titles = titles or ["" for _ in range(N)]
     p = pyvista.Plotter(shape=(1, N))
@@ -58,7 +59,7 @@ def show_pcds_parallel(*pcds: List[np.ndarray], titles: List[str] = None, point_
     p.show()
 
 
-def show_transformation(source, target, T, *, title="Transformation", point_size=1.0, export: str = None):
+def show_transformation(source, target, T, *, title="Transformation", point_size=1.0, export: Optional[str] = None):
     "检查 transformation 是否正确"
     source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
     source_trans = (source_homo @ T.transpose())[..., :3]  # N, 3
@@ -69,3 +70,27 @@ def show_transformation(source, target, T, *, title="Transformation", point_size
         p.export_html(export)
     else:
         p.show()
+
+
+def show_pose_graph(graph, cond: Optional[Callable] = None):
+    """visualize open3d pose graph
+    graph: 需要可视化的 open3d 格式位姿图
+    cond: 过滤不需要可视化的边，函数接收 o3d.pipelines.registration.PoseGraphEdge，返回 bool
+    """
+    assert isinstance(graph, o3d.pipelines.registration.PoseGraph)
+    cond = cond or (lambda e: True)  # default to display all edges
+
+    nodes = [n.pose[:3, 3] for n in graph.nodes]
+    # ref: PyVista documentation https://docs.pyvista.org/examples/00-load/create-truss
+    # add 2 to indicate to vtk how many points per edge
+    edges = np.array([[2, e.source_node_id, e.target_node_id] for e in graph.edges if cond(e)])
+    confidence = np.array([e.confidence for e in graph.edges if cond(e)])
+
+    mesh = pyvista.PolyData(nodes, edges)
+    mesh.plot(
+        scalars=confidence,
+        style="wireframe",
+        line_width=1,
+        cmap="jet",
+        show_scalar_bar=True,
+    )
