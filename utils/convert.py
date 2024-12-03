@@ -1,8 +1,17 @@
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import small_gicp
+import torch
 from scipy.spatial.transform import Rotation as R
+
+
+def to_numpy(t: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
+    if isinstance(t, np.ndarray):
+        return t
+    elif isinstance(t, torch.Tensor):
+        return t.cpu().numpy()
+    raise TypeError(f"not support type {type(t)}")
 
 
 def euler2matrix(pitch, yaw, roll, x, y, z):
