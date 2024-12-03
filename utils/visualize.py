@@ -76,6 +76,7 @@ def show_pose_graph(graph, cond: Optional[Callable] = None):
     """visualize open3d pose graph
     graph: 需要可视化的 open3d 格式位姿图
     cond: 过滤不需要可视化的边，函数接收 o3d.pipelines.registration.PoseGraphEdge，返回 bool
+    注：可视化结果不显示顶点，暂时没找到 workaround
     """
     assert isinstance(graph, o3d.pipelines.registration.PoseGraph)
     cond = cond or (lambda e: True)  # default to display all edges
