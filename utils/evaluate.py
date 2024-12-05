@@ -79,4 +79,10 @@ def evaluate_registration(
         max_correspondence_distance=2 * resolution,  # 固定为这个比例
         transformation=trans,
     )
-    return result
+    return {
+        "source_point_size": len(_sp.points),
+        "target_point_size": len(_tp.points),
+        "fitness": result.fitness,
+        "inlier_rmse": result.inlier_rmse,
+        "inlier_num": len(result.correspondence_set),
+    }
