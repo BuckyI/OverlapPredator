@@ -1,6 +1,9 @@
 import numpy as np
+import open3d as o3d
 import small_gicp
 import torch
+
+from lib.benchmark_utils import to_o3d_pcd
 
 from .convert import transform
 
@@ -53,3 +56,27 @@ def chamfer_distance_feat(sp, tp, sf, tf, trans: np.ndarray = np.eye(4)) -> floa
 @torch.jit.script
 def get_similarity(feat1: torch.Tensor, feat2: torch.Tensor):
     return (torch.dot(feat1, feat2) / feat1.norm() / feat2.norm()).item()
+
+
+def evaluate_registration(
+    sp: np.ndarray,
+    tp: np.ndarray,
+    trans: np.ndarray = np.eye(4),
+    resolution: float = 0.02,
+):
+    """
+    评估配准结果
+    sp: source points
+    tp: target points
+    trans: transformation matrix from sp to tp
+    resolution: voxel size, default 0.02 （评估前先对点云进行降采样）
+    """
+    _sp, _tp = to_o3d_pcd(sp), to_o3d_pcd(tp)
+    _sp, _tp = _sp.voxel_down_sample(resolution), _tp.voxel_down_sample(resolution)
+    result = o3d.pipelines.registration.evaluate_registration(
+        source=_sp,
+        target=_tp,
+        max_correspondence_distance=2 * resolution,  # 固定为这个比例
+        transformation=trans,
+    )
+    return result
