@@ -23,6 +23,17 @@ def pose_difference(t1: np.ndarray, t2: np.ndarray):
     return np.linalg.norm(get_trans_rot(np.linalg.inv(t1) @ t2))
 
 
+def pose_difference2(t1: np.ndarray, t2: np.ndarray):
+    """
+    计算位姿差异，但是旋转量 * 2 以更加重视旋转差异。
+    参考 Bundle Fusion (Dai 2018) 的位姿差异评估方法
+    """
+    t = np.linalg.inv(t1) @ t2
+    trans = np.linalg.norm(t[:3, 3])
+    rot = np.arccos((np.trace(t[:3, :3]) - 1) / 2)
+    return np.sqrt(trans**2 + 4 * rot**2)
+
+
 def chamfer_distance(a: np.ndarray, b: np.ndarray):
     "计算两个点云之间的 chamfer 距离"
     assert a.shape[0] and b.shape[0], "点数量不能为0"
