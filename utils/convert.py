@@ -47,3 +47,18 @@ def downsample(points: np.ndarray, resolution: float) -> np.ndarray:
 def merge_points(points_list: List[np.ndarray]) -> np.ndarray:
     "合并多个点云"
     return np.concatenate(points_list, axis=0)
+
+
+def compute_vertex(depth: np.ndarray, K: np.ndarray) -> np.ndarray:
+    """
+    将深度图转化为点云坐标
+    depth: HxW
+    K: 3x3
+    return: HxWx3
+    """
+    H, W = depth.shape
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+
+    X, Y = np.meshgrid(np.arange(0, W), np.arange(0, H))  # [H, W]
+    vertex = np.stack([(X - cx) / fx, (Y - cy) / fy, np.ones_like(X)], -1) * depth[..., None]  # [H, W, 3]
+    return vertex
