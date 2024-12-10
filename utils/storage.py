@@ -171,7 +171,7 @@ class DatasetCache(Storage):
 
     def save_frame_data(self, dataset: str, timestamp: float, data: DATA_TYPE):
         "将帧预处理的数据保存至本地数据库"
-        logger.info("caching frame {timestamp}", timestamp=logger.info("caching frame {timestamp}", timestamp=timestamp))
+        logger.info(f"caching frame {timestamp}")
         group = self.get_frame_group(dataset, timestamp)
         save_to_group(group, data)
 
