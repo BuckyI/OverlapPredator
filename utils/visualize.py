@@ -1,5 +1,6 @@
 from typing import Callable, List, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import pyvista
@@ -70,6 +71,28 @@ def show_transformation(source, target, T, *, title="Transformation", point_size
         p.export_html(export)
     else:
         p.show()
+
+
+def show_rgbd_image(depth: np.ndarray, color: np.ndarray):
+    "display RGB-D image"
+    fig, axs = plt.subplots(1, 2)
+    axs[0].imshow(depth)
+    axs[0].axis("off")
+    axs[1].imshow(color)
+    axs[1].axis("off")
+    plt.tight_layout()
+    plt.show()
+
+
+def show_colored_points(points: np.ndarray, colors: np.ndarray, *, point_size=1.0):
+    """
+    display point cloud with color (RGB-D)
+    points: N, 3
+    colors: N, 3
+    """
+    plotter = pyvista.Plotter()
+    plotter.add_points(points, scalars=colors, rgb=True, point_size=point_size)
+    plotter.show()
 
 
 def show_pose_graph(graph, cond: Optional[Callable] = None):
