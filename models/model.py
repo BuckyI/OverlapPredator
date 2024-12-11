@@ -362,7 +362,10 @@ class Model:
         data = self._preprocess(source, target)
         for k, v in data.items():
             data[k] = [vv.to(self.device) for vv in v]
-        data["features"] = self.model.encode(data)
+
+        # 由于 pytorch 限制，model.encode 获得的为定长 tuple
+        # 为了与其他数据保持类型一致，这里仍然转化为 list
+        data["features"] = list(self.model.encode(data))
         feats, scores_overlap, scores_saliency = self.model.decode(data)
         data["final_feature"] = feats
         data["scores_overlap"] = scores_overlap
