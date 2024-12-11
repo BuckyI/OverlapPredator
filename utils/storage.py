@@ -62,6 +62,9 @@ class Storage:
         assert isinstance(group, h5py.Group), f"get {name} but it's not a group"
         return group
 
+    def __del__(self):
+        self.hdf5.close()
+
 
 def save_to_group(group: h5py.Group, data: DATA_TYPE):
     """保存 data 到 group
