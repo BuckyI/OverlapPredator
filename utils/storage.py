@@ -146,6 +146,12 @@ class DatasetCache(Storage):
 
     def __init__(self, path: str, mode="r"):
         super().__init__(path, mode)
+
+        # 对于数据库的覆盖，双重验证一下
+        if Path(path).exists() and mode == "w":
+            check = input("你将要覆盖已有的缓存，是否继续？(y/n)")
+            assert check.strip().lower() == "y", "abort"
+
         logger.info(f"{self.__class__.__name__} loaded")
 
     @property
@@ -162,6 +168,10 @@ class DatasetCache(Storage):
             logger.warning(f"{name} not found in cache, will create a new group")
 
         return self.get_group(f"{name}/{timestamp}")
+
+    def exists(self, dataset: str, timestamp: float) -> bool:
+        "快速判断数据集 dataset 中时间戳为 timestamp 的帧是否在数据库中有数据"
+        return f"{dataset}/{timestamp}" in self.hdf5
 
     def get_frame_timestamps(self, name: str) -> List[float]:
         "获取数据集 name 中的所有帧，注意帧的 key 为 float"
