@@ -65,9 +65,8 @@ def to_numpy(data: DATA_TENSOR) -> DATA_NP:
 
 def merge_data(source: DATA_NP, target: DATA_NP, device: Union[str, torch.device] = "cuda:0") -> DATA_TENSOR:
     """用于从本地取出 source 和 target 数据后，合并为模型推理需要的格式和数据类型"""
-    assert all(field in source for field in DATA_FIELDS), f"source data validation failed"
-    assert all(field in target for field in DATA_FIELDS), f"target data validation failed"
-    s1, s2 = source, target
+    # 避免修改原始数据（比如传入同一个点云的数据进行合成，会因内存共享出错）
+    s1, s2 = source.copy(), target.copy()
 
     # fix id: 两个点云合并，则第二个点云的索引值需要添加第一个点云的长度
     # 注意存在本身就属于无效点的索引，即 inf，但是这里不需要担心，因为它们在相加后仍然为 inf
