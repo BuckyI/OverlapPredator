@@ -219,10 +219,13 @@ class RunCache(Storage):
     ...
     """
 
-    def __init__(self, path: str, mode: str = "w"):
+    def __init__(self, path: str, mode: str = "w", *, description: str = ""):
         if (mode == "w" or mode == "a") and Path(path).exists():
             raise Exception("程序运行缓存不应复用")
         super().__init__(path, mode)
+        # 初次创建时添加描述信息
+        if self.hdf5.get("description") is None:
+            self.hdf5.attrs["description"] = description
 
     def log_step(self, meta: Optional[dict] = None, **data: dict):
         """
@@ -241,3 +244,6 @@ class RunCache(Storage):
             group.create_dataset(key, data=np.array(value))
 
         step_group.file.flush()
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}: {self.hdf5.attrs.get('description')}"
