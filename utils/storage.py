@@ -207,7 +207,7 @@ class DatasetCache(Storage):
         return merge_data(source, target)
 
 
-class StepCache(Storage):
+class RunCache(Storage):
     """
     存储程序运行过程中的中间数据
 
