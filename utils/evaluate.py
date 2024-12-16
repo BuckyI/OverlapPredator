@@ -97,3 +97,36 @@ def evaluate_registration(
         "inlier_rmse": result.inlier_rmse,
         "inlier_num": len(result.correspondence_set),
     }
+
+
+def check_data_consistency(data1: dict, data2: dict, verbose: bool = True):
+    """检验两个 dict 内的数据是否一致"""
+
+    def _all_close(a, b, name=""):
+        if isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor) and not torch.allclose(i, j):
+            e = torch.abs(i - j).mean()
+            msg = f"{name}[Tensor] not equal, mean error: {e}"
+            return msg
+        if isinstance(a, np.ndarray) and isinstance(b, np.ndarray) and not np.allclose(i, j):
+            e = np.abs(i - j).mean()
+            msg = f"{name}[ndarray] not equal, mean error: {e}"
+            return msg
+        return ""
+
+    assert data1.keys() == data2.keys(), "keys not equal"
+    errors = []
+    for k in data1.keys():
+        if isinstance(data1[k], list):
+            for idx, (i, j) in enumerate(zip(data1[k], data2[k])):
+                msg = _all_close(i, j, f"{k}[{idx=}]")
+                if msg:
+                    errors.append(msg)
+        elif isinstance(data1[k], torch.Tensor) or isinstance(data1[k], np.ndarray):
+            msg = _all_close(data1[k], data2[k], k)
+            if msg:
+                errors.append(msg)
+        else:
+            errors.append(f"unknown type {type(data1[k])}")
+    if verbose:
+        print("\n".join(errors) or "All equal.")
+    return errors
