@@ -63,7 +63,7 @@ class Storage:
         assert isinstance(group, h5py.Group), f"get {name} but it's not a group"
         return group
 
-    def __del__(self):
+    def close(self):
         self.hdf5.close()
 
 
