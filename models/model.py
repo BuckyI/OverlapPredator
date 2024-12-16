@@ -354,6 +354,33 @@ class Model:
         return self.preporcess(points)
 
     @torch.inference_mode()
+    def pair_decode(self, source: DATA_NP, target: DATA_NP) -> Tuple[bool, DATA_TENSOR]:
+        """
+        点云对共同 Decoder 编码操作
+        source, target 是 encode 的结果，二者进行信息交互并通过 Decoder 获得
+        - final_feature
+        - scores_overlap
+        - scores_saliency
+        """
+        required_fields = [
+            "lengths",
+            "points",
+            "neighbors",
+            "pools",
+            "upsamples",
+            "features",
+        ]
+        assert all([f in source for f in required_fields]), f"invalid input {required_fields}"
+        assert all([f in target for f in required_fields]), f"invalid input {required_fields}"
+
+        data = merge_data(source, target)
+        feats, scores_overlap, scores_saliency = self.model.decode(data)
+        data["final_feature"] = feats
+        data["scores_overlap"] = scores_overlap
+        data["scores_saliency"] = scores_saliency
+        return True, data
+
+    @torch.inference_mode()
     def encode_decode(self, source: np.ndarray, target: np.ndarray) -> DATA_TENSOR:
         """
         对点云对进行完整的模型推理操作，Encoder-Decoder
