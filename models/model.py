@@ -406,6 +406,13 @@ class Model:
         return: transformation from source to target
         """
         data = self.encode_decode(source, target)
+        result = self.registration_(data)
+        return result["T"]  # type: ignore
+
+    def registration_(self, data: DATA_TENSOR, debug: bool = False) -> DATA_NP:
+        """根据模型输出结果进行点云配准，
+        返回 dict 包括详细中间信息(如果 debug 为 True)和最终结果，方便实验
+        """
         len_src = int(data["stack_lengths"][0][0])
         src_pcd, tgt_pcd = split_data(data["points"][0], len_src)
         src_feats, tgt_feats = split_data(data["final_feature"], len_src)
@@ -465,4 +472,20 @@ class Model:
             )
             T = reg_res.T_target_source
 
-        return T
+        return (
+            dict(
+                T=T,
+                source_raw=src_pcd.cpu().numpy(),
+                target_raw=tgt_pcd.cpu().numpy(),
+                source=src_pcd_down,
+                target=tgt_pcd_down,
+                source_id=src_idx,
+                target_id=tgt_idx,
+                source_feats=src_feats_down,
+                target_feats=tgt_feats_down,
+                source_scores=src_score_down.cpu().numpy(),
+                target_scores=tgt_score_down.cpu().numpy(),
+            )
+            if debug
+            else dict(T=T)
+        )
