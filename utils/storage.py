@@ -189,11 +189,8 @@ class DatasetCache(Storage):
         group = self.get_frame_group(dataset, timestamp)
         save_to_group(group, data)
 
-    def load_model_inputs(self, dataset: str, source_timestamp: float, target_timestamp: float):
-        "加载缓存的指定数据，供后续合并以及模型推理所需"
-        times = self.get_frame_timestamps(dataset)
-        assert source_timestamp in times and target_timestamp in times, "missing frame"
-
+    def load_frame_data(self, dataset: str, timestamp: float) -> DATA_TYPE:
+        "加载指定数据集指定时间戳的帧数据，用于模型 pair_decode 操作"
         required_fields = [
             "lengths",
             "points",
@@ -202,10 +199,7 @@ class DatasetCache(Storage):
             "upsamples",
             "features",
         ]
-        source = load_from_group(self.get_frame_group(dataset, source_timestamp), required_fields)
-        target = load_from_group(self.get_frame_group(dataset, target_timestamp), required_fields)
-
-        return merge_data(source, target)
+        return load_from_group(self.get_frame_group(dataset, timestamp), required_fields)
 
 
 class RunCache(Storage):
