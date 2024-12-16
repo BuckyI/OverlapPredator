@@ -60,6 +60,13 @@ def show_pcds_parallel(*pcds: List[np.ndarray], titles: Optional[List[str]] = No
     p.show()
 
 
+def show_pcd_with_keypoints(pcd: np.ndarray, kps: np.ndarray):
+    p = pyvista.Plotter()
+    p.add_points(pcd, color=[0, 0, 255], point_size=1)
+    p.add_points(kps, color=[255, 0, 0], point_size=5)
+    p.show()
+
+
 def show_transformation(source, target, T, *, title="Transformation", point_size=1.0, export: Optional[str] = None):
     "检查 transformation 是否正确"
     source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
