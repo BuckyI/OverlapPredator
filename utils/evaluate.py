@@ -69,6 +69,10 @@ def get_similarity(feat1: torch.Tensor, feat2: torch.Tensor):
     return (torch.dot(feat1, feat2) / feat1.norm() / feat2.norm()).item()
 
 
+def cosine_similarity(a: np.ndarray, b: np.ndarray):
+    return np.dot(a, b) / np.linalg.norm(a) / np.linalg.norm(b)
+
+
 def evaluate_registration(
     sp: np.ndarray,
     tp: np.ndarray,
