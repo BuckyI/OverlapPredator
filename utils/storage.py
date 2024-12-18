@@ -215,11 +215,18 @@ class RunCache(Storage):
     """
 
     def __init__(self, path: str, mode: str = "w", *, description: str = ""):
+        """
+        mode: make sure you know what you are doing
+            - r: 读取已有的缓存
+            - a: 向已有的缓存追加数据
+            - w: 创建新的缓存，如果已经存在，会自动增加时间后缀避免重复
+        """
+
         # 避免程序不同 run 覆盖缓存，自动添加时间后缀
         p = Path(path)
-        if (mode == "w" or mode == "a") and p.exists():
+        if mode == "w" and p.exists():
             p = p.with_name(p.stem + datetime.now().strftime("%Y%m%d%H%M%S") + p.suffix)
-            logger.warning(f"程序运行缓存不应复用, 创建新缓存 {p.name}")
+            logger.warning(f"创建缓存至 {p.name}")
             path = p.as_posix()
 
         super().__init__(path, mode)
