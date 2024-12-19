@@ -234,6 +234,14 @@ class RunCache(Storage):
         if self.hdf5.get("description") is None:
             self.hdf5.attrs["description"] = description
 
+        # 用于搜索的索引，需要确保数据结构一致
+        logger.info("为快速查找，开始建立索引")
+        self.index = {
+            (g.attrs["dataset_id"], g.attrs["source_timestamp"], g.attrs["target_timestamp"]): k
+            for k, g in self.hdf5.items()
+        }
+        logger.info("索引建立完毕")
+
     def log_step(self, meta: Optional[dict] = None, **data: dict):
         """
         在 'steps' group 中保存每次执行配准的数据
@@ -254,3 +262,22 @@ class RunCache(Storage):
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}: {self.hdf5.attrs.get('description')}"
+
+    def update_step(self, key: Union[str, tuple], meta: dict, overwrite: bool = False):
+        """
+        更新指定 step 的 attrs
+        key: step key
+        meta: 需要更新的元数据
+        overwrite: 当 meta 中的 key 在 attrs 中已存在时，是否覆盖已有数据，默认不覆盖。
+        """
+        if isinstance(key, tuple):
+            key = self.index[key]
+        step = self.hdf5.get(key)
+        assert step is not None, f"step {key} does not exist"
+        assert isinstance(step, h5py.Group), f"step {key} is not a group"
+        for k, v in meta.items():
+            if k not in step.attrs:
+                step.attrs[k] = v
+            elif overwrite:
+                logger.warning("Overwriting existing attribute: {k} in step {key}.")
+                step.attrs[k] = v
