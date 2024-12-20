@@ -71,6 +71,7 @@ class TUMDataset:
     }
 
     def __init__(self, path: str, calibration: str = "fr3"):
+        self.id = path.split("/")[-1]  # 使用文件名作为数据集的 id
         self.path = Path(path)
         assert self.path.is_dir(), f"dataset {path} does not exist"
 
