@@ -234,13 +234,19 @@ class RunCache(Storage):
         if self.hdf5.attrs.get("description") is None:
             self.hdf5.attrs["description"] = description
 
-        # 用于搜索的索引，需要确保数据结构一致
-        logger.info("为快速查找，开始建立索引")
-        self.index = {
-            (g.attrs["dataset_id"], g.attrs["source_timestamp"], g.attrs["target_timestamp"]): k
-            for k, g in self.hdf5.items()
-        }
-        logger.info("索引建立完毕")
+        self.index_ = None  # 用于搜索的索引，需要确保记录的数据结构一致
+
+    @property
+    def index(self) -> Dict[tuple, str]:
+        "用于快速查找指定记录的索引"
+        if self.index_ is None:
+            logger.info("为快速查找，开始建立索引")
+            self.index_ = {
+                (g.attrs["dataset_id"], g.attrs["source_timestamp"], g.attrs["target_timestamp"]): k
+                for k, g in self.hdf5.items()
+            }
+            logger.info("索引建立完毕")
+        return self.index_
 
     def log_step(self, meta: Optional[dict] = None, **data: dict):
         """
