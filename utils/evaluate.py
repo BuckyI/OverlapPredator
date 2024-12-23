@@ -1,7 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import small_gicp
 import torch
+from sklearn.metrics import auc, precision_recall_curve, roc_curve
 
 from lib.benchmark_utils import to_o3d_pcd
 
@@ -134,3 +136,39 @@ def check_data_consistency(data1: dict, data2: dict, verbose: bool = True):
     if verbose:
         print("\n".join(errors) or "All equal.")
     return errors
+
+
+def show_pr_curve(y_true, probas_pred):
+    "评估分类任务性能"
+    precision, recall, thresholds = precision_recall_curve(y_true, probas_pred)
+    auc_score = auc(recall, precision)
+    print("auc score:", auc_score)
+
+    plt.figure()
+    plt.plot(recall, precision, color="darkorange", label="Precision-Recall curve")
+    # plt.plot([0, 1], [1, 0], color="navy", lw=2, linestyle="--")
+    plt.xlim([0.0, 1.05])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"Precision-Recall Curve")
+    plt.legend()
+    plt.show()
+
+
+def show_roc_curve(y_true, probas_pred):
+    "评估分类任务性能"
+    fpr, tpr, thresholds = roc_curve(y_true, probas_pred)
+    auc_score = auc(fpr, tpr)
+    print("auc score:", auc_score)
+
+    plt.figure()
+    plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {auc_score:.2f})")
+    plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Receiver Operating Characteristic")
+    plt.legend(loc="lower right")
+    plt.show()
