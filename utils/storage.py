@@ -231,7 +231,7 @@ class RunCache(Storage):
 
         super().__init__(path, mode)
         # 初次创建时添加描述信息
-        if self.hdf5.get("description") is None:
+        if self.hdf5.attrs.get("description") is None:
             self.hdf5.attrs["description"] = description
 
         # 用于搜索的索引，需要确保数据结构一致
