@@ -162,6 +162,7 @@ class DatasetCache(Storage):
 
     def get_frame_group(self, name: str, timestamp: float) -> h5py.Group:
         """
+        获取数据集 name 中时间戳为 timestamp 的帧，如果不存在，会尝试创建。
         name: str, 数据集
         timestamp: float, 帧的 key
         """
