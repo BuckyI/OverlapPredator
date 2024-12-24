@@ -24,7 +24,7 @@ def check_registration(sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.ey
     """
     result = evaluate_registration(sp, tp, trans)
     return (
-        result["inliner_rmse"] < 0.02
+        result["inlier_rmse"] < 0.02
         and result["source_point_size"] > 100
         and result["target_point_size"] > 100
         and result["fitness"] > 0.65
