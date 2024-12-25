@@ -156,12 +156,6 @@ class DatasetCache(Storage):
 
     def __init__(self, path: str, mode="r"):
         super().__init__(path, mode)
-
-        # 对于数据库的覆盖，双重验证一下
-        if Path(path).exists() and mode == "w":
-            check = input("你将要覆盖已有的缓存，是否继续？(y/n)")
-            assert check.strip().lower() == "y", "abort"
-
         logger.info(f"{self.__class__.__name__} loaded")
 
     @property
