@@ -6,8 +6,6 @@ import h5py
 import numpy as np
 from loguru import logger
 
-from models.model import merge_data
-
 h5py.get_config().track_order = True  # 保证读取顺序按照插入顺序
 DATA_TYPE = Dict[str, Union[np.ndarray, List[np.ndarray]]]
 
