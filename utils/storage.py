@@ -91,6 +91,17 @@ def save_to_group(group: h5py.Group, data: DATA_TYPE):
             raise ValueError(f"unexpected data type {type(v)}")
 
 
+def update_attrs(group: h5py.Group, attrs: dict, overwrite: bool = False):
+    for k, v in attrs.items():
+        if k not in group.attrs:
+            group.attrs[k] = v
+        elif overwrite:
+            logger.warning(f"Overwriting existing attribute: {k}.")
+            group.attrs[k] = v
+        else:
+            logger.warning(f"Attribute {k} already exists, skip.")
+
+
 def load_from_group(group: h5py.Group, keys: Optional[List[str]] = None, recursive=False) -> DATA_TYPE:
     """
     读取指定的数据
