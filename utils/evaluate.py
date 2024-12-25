@@ -1,6 +1,9 @@
+from typing import List
+
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
+import pandas as pd
 import small_gicp
 import torch
 from sklearn.metrics import auc, precision_recall_curve, roc_curve
@@ -172,3 +175,54 @@ def show_roc_curve(y_true, probas_pred):
     plt.title("Receiver Operating Characteristic")
     plt.legend(loc="lower right")
     plt.show()
+
+
+def evaluate_pose_graph(pose_graph, dataset, frame_ids: List[int]):
+    """
+    评估位姿图
+    pose_graph: o3d.pipelines.registration.PoseGraph
+    dataset: dataset.frames contains all the frames
+    frame_ids: 用于根据 node id 查询 dataset frame id，长度应该和 pose_graph.nodes 一致
+    """
+    edge_data = []
+    for e in pose_graph.edges:
+        sf = dataset.frames[frame_ids[e.source_node_id]]
+        tf = dataset.frames[frame_ids[e.target_node_id]]
+        gt_T = np.linalg.inv(tf.pose) @ sf.pose
+        data = {
+            "source_timestamp": sf.timestamp,
+            "target_timestamp": tf.timestamp,
+            "source_node_id": e.source_node_id,
+            "target_node_id": e.target_node_id,
+            "confidence": e.confidence,
+            "uncertain": e.uncertain,
+            "transformation": e.transformation,
+            "gt_transformation": gt_T,
+            "error": pose_difference2(e.transformation, gt_T),
+            "is_loop": (abs(sf.timestamp - tf.timestamp) > 5) and (pose_difference2(tf.pose, sf.pose) < 1),
+        }
+        edge_data.append(data)
+    edge_data = pd.DataFrame(edge_data)
+
+    node_data = []
+    for i, n in enumerate(pose_graph.nodes):
+        frame = dataset.frames[frame_ids[i]]
+        data = {
+            "timestamp": frame.timestamp,
+            "error": pose_difference2(n.pose, frame.pose),
+        }
+        node_data.append(data)
+    node_data = pd.DataFrame(node_data)
+
+    eval_result = {}
+    eval_result["outlier_count"] = (edge_data["error"] > 0.3).sum()
+    eval_result["outlier_percent"] = (edge_data["error"] > 0.3).sum() / len(edge_data)
+    eval_result["edge_error_mean"] = edge_data["error"].mean()
+    eval_result["loop_edges_count"] = edge_data["uncertain"].sum()
+    eval_result["node_error_mean"] = node_data["error"].mean()
+
+    print(eval_result)
+
+    eval_result["edge_data"] = edge_data
+    eval_result["node_data"] = node_data
+    return eval_result
