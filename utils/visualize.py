@@ -80,13 +80,15 @@ def show_transformation(source, target, T, *, title="Transformation", point_size
         p.show()
 
 
-def show_rgbd_image(depth: np.ndarray, color: np.ndarray):
+def show_rgbd_image(depth: np.ndarray, color: np.ndarray, *, colorbar: bool = False):
     "display RGB-D image"
-    fig, axs = plt.subplots(1, 2)
-    axs[0].imshow(depth)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    img = axs[0].imshow(depth, aspect="equal")  # cmap="coolwarm"
     axs[0].axis("off")
-    axs[1].imshow(color)
+    axs[1].imshow(color, aspect="equal")
     axs[1].axis("off")
+    if colorbar:
+        fig.colorbar(img)
     plt.tight_layout()
     plt.show()
 
