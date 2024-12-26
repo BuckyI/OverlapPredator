@@ -72,10 +72,24 @@ def pick_point(pcd: np.ndarray, point_size=2.0):
     return plotter.picked_point
 
 
-def show_pcd_with_keypoints(pcd: np.ndarray, kps: np.ndarray):
+def show_pcd_with_keypoints(
+    pcd: np.ndarray,
+    kps: np.ndarray,
+    scalars: Optional[np.ndarray] = None,
+    pcd_point_size=1.0,
+    kps_point_size=5.0,
+):
+    """
+    pcd: N, 3
+    kps: M, 3 keypoints，使用红色点展示
+    scalars: 如果设定，点云按照值映射颜色，否则展示为蓝色
+    """
     p = pyvista.Plotter()
-    p.add_points(pcd, color=[0, 0, 255], point_size=1)
-    p.add_points(kps, color=[255, 0, 0], point_size=5)
+    if scalars is not None:
+        p.add_points(pcd, scalars=scalars, point_size=pcd_point_size)
+    else:
+        p.add_points(pcd, color=[0, 0, 255], point_size=pcd_point_size)
+    p.add_points(kps, color=[255, 0, 0], point_size=kps_point_size)
     p.show()
 
 
