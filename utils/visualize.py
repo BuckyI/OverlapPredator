@@ -60,6 +60,18 @@ def show_pcds_parallel(*pcds: List[np.ndarray], titles: Optional[List[str]] = No
     p.show()
 
 
+def pick_point(pcd: np.ndarray, point_size=2.0):
+    """
+    right click to pick a point from pcd
+    return numpy.ndarray if picked, otherwise None
+    """
+    plotter = pyvista.Plotter()
+    plotter.add_points(pcd, color="blue", point_size=point_size)
+    plotter.enable_point_picking(color="red", show_message="Pick a point with right click")
+    plotter.show()
+    return plotter.picked_point
+
+
 def show_pcd_with_keypoints(pcd: np.ndarray, kps: np.ndarray):
     p = pyvista.Plotter()
     p.add_points(pcd, color=[0, 0, 255], point_size=1)
