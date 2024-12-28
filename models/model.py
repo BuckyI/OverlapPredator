@@ -399,15 +399,15 @@ class Model:
         data["scores_saliency"] = scores_saliency
         return data
 
-    def registration(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    def registration(self, source: np.ndarray, target: np.ndarray, debug: bool = False):
         """
         source: source points
         target: target points
         return: transformation from source to target
         """
         data = self.encode_decode(source, target)
-        result = self.registration_(data)
-        return result["T"]  # type: ignore
+        result = self.registration_(data, debug)
+        return result if debug else result["T"]  # type: ignore
 
     def registration_(self, data: DATA_TENSOR, debug: bool = False) -> DATA_NP:
         """根据模型输出结果进行点云配准，
