@@ -475,8 +475,11 @@ class Model:
         return (
             dict(
                 T=T,
+                T0=result_ransac.transformation,
                 source_raw=src_pcd.cpu().numpy(),
                 target_raw=tgt_pcd.cpu().numpy(),
+                source_raw_scores=src_scores.cpu().numpy(),
+                target_raw_scores=tgt_scores.cpu().numpy(),
                 source=src_pcd_down,
                 target=tgt_pcd_down,
                 source_id=src_idx,
