@@ -49,6 +49,45 @@ def tsdf(
 
     return vbg
 
+
+def tsdf2(
+    depths: List[np.ndarray],
+    colors: List[np.ndarray],
+    poses: List[np.ndarray],
+    K: np.ndarray,
+    depth_scale: float,
+    depth_max: float = 5.0,
+    vol_size: float = 3.0 / 512,
+):
+    """
+    tsdf from nparray
+    PLEASE CHECK DATATYPE:
+        depth: uint16
+        color: uint8
+        K: float64
+        depth_scale: float
+
+    return o3d.t.geometry.VoxelBlockGrid
+    """
+    device = o3d.core.Device("CPU:0")
+    vbg = o3d.t.geometry.VoxelBlockGrid(
+        attr_names=("tsdf", "weight", "color"),
+        attr_dtypes=(o3c.float32, o3c.float32, o3c.float32),
+        attr_channels=((1), (1), (3)),
+        voxel_size=vol_size,
+        block_resolution=16,
+        block_count=5000,
+        device=device,
+    )
+    for depth, color, pose in zip(depths, colors, poses):
+        depth = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(depth))
+        color = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(color))
+        intrinsic = o3d.core.Tensor(K, o3d.core.Dtype.Float64)
+        extrinsic = o3d.core.Tensor(np.linalg.inv(pose), o3d.core.Dtype.Float64)
+
+        frustum_block_coords = vbg.compute_unique_block_coordinates(
+            depth, intrinsic, extrinsic, depth_scale, depth_max
+        )  # Nx3 tensor
         vbg.integrate(
             frustum_block_coords,
             depth,
@@ -56,8 +95,8 @@ def tsdf(
             intrinsic,
             intrinsic,
             extrinsic,
-            depth_scale=5000.0,
-            depth_max=3.0,
+            depth_scale=depth_scale,
+            depth_max=depth_max,
         )
 
     return vbg
