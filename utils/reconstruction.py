@@ -8,7 +8,13 @@ import open3d.core as o3c
 from datasets.tum import Frame
 
 
-def tsdf(frames: List[Frame], poses: List[np.ndarray], vol_size: float = 3.0 / 512):
+def tsdf(
+    frames: List[Frame],
+    poses: List[np.ndarray],
+    vol_size: float = 3.0 / 512,
+    depth_scale: float = 5000.0,
+    depth_max: float = 5.0,
+):
     """
     return o3d.t.geometry.VoxelBlockGrid
     """
@@ -28,7 +34,21 @@ def tsdf(frames: List[Frame], poses: List[np.ndarray], vol_size: float = 3.0 / 5
         intrinsic = o3d.core.Tensor(frame.K, o3d.core.Dtype.Float64)
         extrinsic = o3d.core.Tensor(np.linalg.inv(pose), o3d.core.Dtype.Float64)
 
-        frustum_block_coords = vbg.compute_unique_block_coordinates(depth, intrinsic, extrinsic, 5000.0, 5)  # Nx3 tensor
+        frustum_block_coords = vbg.compute_unique_block_coordinates(depth, intrinsic, extrinsic, depth_scale, depth_max)
+        # Nx3 tensor
+        vbg.integrate(
+            frustum_block_coords,
+            depth,
+            color,
+            intrinsic,
+            intrinsic,
+            extrinsic,
+            depth_scale=depth_scale,
+            depth_max=depth_max,
+        )
+
+    return vbg
+
         vbg.integrate(
             frustum_block_coords,
             depth,
