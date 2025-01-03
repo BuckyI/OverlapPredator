@@ -7,6 +7,8 @@ import open3d.core as o3c
 
 from datasets.tum import Frame
 
+from .convert import downsample, merge_points, transform
+
 
 class Edge(NamedTuple):
     source_id: int
@@ -181,3 +183,17 @@ def save_scene(vbg: o3d.t.geometry.VoxelBlockGrid, path: str = "scene.ply", type
         mesh = vbg.extract_triangle_mesh()
         return o3d.t.io.write_triangle_mesh(path, mesh, print_progress=True)
     raise ValueError("Invalid type")
+
+
+def simple_merge_points(points: List[np.ndarray], poses: List[np.ndarray]):
+    """
+    根据点和对应的位姿进行合并并降采样
+    适用于快速验证位姿是否准确
+    """
+    pcds = []
+    for pcd, pose in zip(points, poses):
+        pcd = transform(pcd, pose)
+        pcds.append(pcd)
+    pcd = merge_points(pcds)
+    pcd = downsample(pcd, 0.01)
+    return pcd
