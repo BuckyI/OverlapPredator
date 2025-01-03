@@ -1,11 +1,75 @@
 from pathlib import Path
-from typing import List
+from typing import Dict, List, NamedTuple, Tuple, TypedDict
 
 import numpy as np
 import open3d as o3d
 import open3d.core as o3c
 
 from datasets.tum import Frame
+
+
+class Edge(NamedTuple):
+    source_id: int
+    target_id: int
+    T_ts: np.ndarray
+    edge_type: str
+
+
+def construct_pose_graph(edges: List[Edge]):
+    """
+    edges: (source frame id, source target id) -> (relative pose, edge type)
+    edge type: ['loop', 'odometry']
+    注意：相邻顶点必须要有 odometry edge
+    return:
+        open3d.pipelines.registration.PoseGraph: pose graph
+        node_ids(list): node id -> frame id 用于查找数据集中的帧
+    """
+    node_ids = np.unique([[e.source_id, e.target_id] for e in edges]).tolist()  # node id -> frame id
+    # Note: np.unique returns the *sorted* unique elements of an array.
+    frame2node = {node_ids[i]: i for i in range(len(node_ids))}
+
+    pose_graph = o3d.pipelines.registration.PoseGraph()
+
+    # 添加顶点
+    odometry_edges = dict(((e.source_id, e.target_id), e.T_ts) for e in edges if e.edge_type == "odometry")
+    # 尝试构建初始顶点位置
+    init_poses = [np.eye(4)]
+    for i in range(1, len(node_ids)):
+        T_ts = odometry_edges[(node_ids[i], node_ids[i - 1])]
+        init_poses.append(init_poses[-1] @ T_ts)
+    assert len(init_poses) == len(node_ids)
+    for i in range(len(node_ids)):
+        pose_graph.nodes.append(o3d.pipelines.registration.PoseGraphNode(init_poses[i]))
+
+    # 添加边
+    for e in edges:
+        edge = o3d.pipelines.registration.PoseGraphEdge(
+            frame2node[e.source_id],
+            frame2node[e.target_id],
+            e.T_ts,
+            uncertain=(e.edge_type == "odomerty"),
+        )
+        pose_graph.edges.append(edge)
+
+    return pose_graph, node_ids
+
+
+def optimize_pose_graph(pose_graph, verbose: bool = False):
+    method = o3d.pipelines.registration.GlobalOptimizationLevenbergMarquardt()
+    criteria = o3d.pipelines.registration.GlobalOptimizationConvergenceCriteria()
+    option = o3d.pipelines.registration.GlobalOptimizationOption(
+        # max_correspondence_distance=0.07,
+        edge_prune_threshold=0.25,
+        # preference_loop_closure=0.1,
+        reference_node=0,
+    )
+
+    # In-place optimization
+    if verbose:
+        o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Debug)
+    o3d.pipelines.registration.global_optimization(pose_graph, method, criteria, option)
+    o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Info)
+    return pose_graph
 
 
 def tsdf(
