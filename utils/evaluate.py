@@ -226,3 +226,11 @@ def evaluate_pose_graph(pose_graph, dataset, frame_ids: List[int]):
     eval_result["edge_data"] = edge_data
     eval_result["node_data"] = node_data
     return eval_result
+
+
+def abosolute_pose_error(poses: List[np.ndarray], poses_gt: List[np.ndarray]):
+    assert len(poses) == len(poses_gt)
+    # 转换到同一个 gt 坐标系下
+    T = poses_gt[0] @ np.linalg.inv(poses[0])
+    poses = [T @ pose for pose in poses]
+    return [pose_difference2(i, j) for i, j in zip(poses_gt, poses)]
