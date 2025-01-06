@@ -135,6 +135,11 @@ def tsdf2(
 
     return o3d.t.geometry.VoxelBlockGrid
     """
+    # 类型检查
+    depth_scale = float(depth_scale)
+    depth_max = float(depth_max)
+    vol_size = float(vol_size)
+
     device = o3d.core.Device("CPU:0")
     vbg = o3d.t.geometry.VoxelBlockGrid(
         attr_names=("tsdf", "weight", "color"),
