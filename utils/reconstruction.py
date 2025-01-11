@@ -22,6 +22,7 @@ def construct_pose_graph(edges: List[Edge]):
     edges: (source frame id, source target id) -> (relative pose, edge type)
     edge type: ['loop', 'odometry']
     注意：相邻顶点必须要有 odometry edge
+    注意: frame id 大小代表了时间顺序，id 增加，时间往后。
     return:
         open3d.pipelines.registration.PoseGraph: pose graph
         node_ids(list): node id -> frame id 用于查找数据集中的帧
