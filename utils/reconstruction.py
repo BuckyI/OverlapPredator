@@ -191,6 +191,17 @@ def save_scene(vbg: o3d.t.geometry.VoxelBlockGrid, path: str = "scene.ply", type
     raise ValueError("Invalid type")
 
 
+def extract_pcd(vbg: o3d.t.geometry.VoxelBlockGrid) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    vbg: o3d.t.geometry.VoxelBlockGrid
+    return points, colors
+    """
+    pcd = vbg.extract_point_cloud()
+    points = pcd.point.positions.numpy()
+    colors = pcd.point.colors.numpy()
+    return points, colors
+
+
 def simple_merge_points(points: List[np.ndarray], poses: List[np.ndarray]):
     """
     根据点和对应的位姿进行合并并降采样
