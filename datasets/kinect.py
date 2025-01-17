@@ -3,7 +3,7 @@ Azure Kinect Dataset
 """
 
 from pathlib import Path
-from typing import List, NamedTuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -35,7 +35,7 @@ class KinectDataset:
         self.depth_scale = attrs["depth_scale"]
         self.width = attrs["width"]
         self.height = attrs["height"]
-        self.K = attrs["K"]
+        self.K = attrs["K"].astype(np.float64)  # type: ignore
 
         hdf5 = self.cache.hdf5.get(self.dataset_id)
         assert isinstance(hdf5, h5py.Group)
@@ -68,3 +68,33 @@ class KinectDataset:
 
     def __len__(self):
         return len(self.timestamps)
+
+    def batch_load_(
+        self,
+        *,
+        timestamps: Optional[Union[List[str], List[int]]] = None,
+        ids: Optional[List[int]] = None,
+    ) -> List[h5py.Group]:
+        """
+        根据指定索引加载 Groups
+        """
+        if timestamps is not None:
+            if isinstance(timestamps[0], int):
+                timestamps = list(map(str, timestamps))
+        elif ids is not None:
+            timestamps = [str(self.timestamps[i]) for i in ids]
+        else:
+            raise ValueError("Either timestamps or ids must be provided")
+        groups = [self.hdf5.get(t) for t in timestamps]
+        assert all(isinstance(g, h5py.Group) for g in groups)
+        return groups  # type: ignore
+
+    def batch_load_rgbd(self, timestamps: Union[List[str], List[int]]) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """
+        加载可用于 TSDF 融合的数据
+        return depths, colors
+        """
+        groups = self.batch_load_(timestamps=timestamps)
+        depths = [np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16) for g in groups]
+        colors = [np.asarray(g["frame_color"]) for g in groups]
+        return depths, colors
