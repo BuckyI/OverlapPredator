@@ -51,7 +51,7 @@ def construct_pose_graph(edges: List[Edge]):
             frame2node[e.source_id],
             frame2node[e.target_id],
             e.T_ts,
-            uncertain=(e.edge_type == "odomerty"),
+            uncertain=(e.edge_type != "odomerty"),
         )
         pose_graph.edges.append(edge)
 
