@@ -32,7 +32,7 @@ def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None):
     pdata = pyvista.PolyData(pcd)
     if value is not None:
         pdata["value"] = value
-        pdata.plot(point_size=point_size)
+        pdata.plot(point_size=point_size, scalars="value", cmap="coolwarm")
     else:
         pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
 
