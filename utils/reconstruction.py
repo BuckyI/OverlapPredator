@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Tuple, TypedDict
 
@@ -73,6 +74,31 @@ def optimize_pose_graph(pose_graph, verbose: bool = False):
     o3d.pipelines.registration.global_optimization(pose_graph, method, criteria, option)
     o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Info)
     return pose_graph
+
+
+def save_pose_graph(path, pose_graph, node_ids=None):
+    """
+    path: folder path to save
+    pose_graph: open3d.pipelines.registration.PoseGraph
+    node_ids: node id -> frame id
+    """
+    path = Path(path)
+    if not path.exists():
+        path.mkdir()
+    o3d.io.write_pose_graph(Path(path, "pose_graph.json").as_posix(), pose_graph)
+    if node_ids is not None:
+        json.dump(node_ids, open(Path(path, "pose_graph_node_ids.json"), "w"))
+
+
+def load_pose_graph(path):
+    pg_path = Path(path, "pose_graph.json")
+    node_ids_path = Path(path, "pose_graph_node_ids.json")
+    pose_graph = node_ids = None
+    if pg_path.exists():
+        pose_graph = o3d.io.read_pose_graph(pg_path.as_posix())
+    if node_ids_path.exists():
+        node_ids = json.load(open(node_ids_path, "r"))
+    return pose_graph, node_ids
 
 
 def tsdf(
