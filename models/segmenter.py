@@ -39,6 +39,38 @@ def extract_target_points(depth: np.ndarray, mask: np.ndarray, K: np.ndarray):
     return np.asarray(pcd.points)
 
 
+def extract_target_points_o3d(depth: np.ndarray, mask: np.ndarray, K: np.ndarray, color: np.ndarray) -> np.ndarray:
+    """
+    提取目标的彩色点云
+    depth: 深度图
+    mask: 预测的目标的 mask （由于 YOLO 处理图像会修改尺寸，mask 可以和 depth 的 shape 不一样）
+    K: 相机内参
+    color: 可选的 RGB 图像，用于获得彩色点云，尺寸必须和 depth 图像一致，且已对齐
+
+    return: 预处理过后的 Open3D 目标点云，经过 0.01 分辨率降采样和去除统计外点。
+    """
+    depth = depth.copy()  # 防止修改原数据
+    if depth.shape != mask.shape:
+        h, w = depth.shape
+        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    depth[mask == 0] = 0
+    points = compute_vertex(depth, K)
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.reshape(-1, 3))
+
+    if color is not None:  # 增加颜色
+        assert color.shape[:2] == depth.shape
+        pcd.colors = o3d.utility.Vector3dVector(color.reshape(-1, 3) / 255.0)
+
+    # pcd = pcd.remove_duplicated_points()
+    pcd = pcd.voxel_down_sample(voxel_size=0.01)
+    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.2)
+    pcd = pcd.select_by_index(ind)
+    return pcd
+
+
 class Segmenter:
 
     def __init__(self, model_path: str = "weights/pig_segment.pt") -> None:
