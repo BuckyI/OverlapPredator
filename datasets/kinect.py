@@ -3,7 +3,7 @@ Azure Kinect Dataset
 """
 
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -27,7 +27,10 @@ class KinectDataset:
     读取 HDF5 缓存的 Kinect 数据集
     """
 
-    def __init__(self, cache_path: str):
+    def __init__(self, cache_path: str, cache_frame: bool = True):
+        """
+        cache_frame: 内存中缓存预处理过后的 Frame，避免重复计算  [临时 workaround #TODO]
+        """
         assert Path(cache_path).is_file()
         self.cache = DatasetCache(cache_path, "r")
         self.meta = attrs = self.cache.hdf5.attrs
@@ -42,25 +45,42 @@ class KinectDataset:
         self.hdf5 = hdf5
         self.timestamps = list(map(int, hdf5.keys()))
 
+        # 初始化 Frame 缓存
+        self.cache_frame = cache_frame
+        self.cached_frames: Dict[int, Frame] = dict()  # timestamp -> Frame
+
     def __getitem__(self, idx: Union[int, str]) -> Frame:
-        if isinstance(idx, str):
+        if isinstance(idx, str):  # timestamp
             timestamp = int(idx)
-        elif isinstance(idx, int):
+        elif isinstance(idx, int):  # index of timestamp
             if idx < 0 or idx >= len(self.timestamps):
                 raise IndexError(f"Index {idx} out of range")
             timestamp = self.timestamps[idx]
         else:
             raise TypeError(f"Index must be int or str, not {type(idx)}")
 
+        # 尝试读取缓存
+        if self.cache_frame and timestamp in self.cached_frames:
+            return self.cached_frames[timestamp]
+
         g = self.hdf5.get(str(timestamp))
         assert isinstance(g, h5py.Group)
         type_ = g.attrs.get("type", "")
-        depth = np.asarray(g["frame_depth"])
+        depth = np.asarray(g["frame_depth"])  # NOTE: 深度的单位是 m (float)
         color = np.asarray(g["frame_color"])
+
+        # 预处理
+        # TODO: 后期将预处理独立出去，因为还需要提取目标之类的
+        # 尺寸缩放到指定大小、深度裁切、去噪等（这里没有涉及）
+        # 获得点云，点云坐标单位转换为 m (float)
         points = np.asarray(g["frame_points"]) / self.depth_scale
         points = downsample(points, 0.01)
 
-        return Frame(timestamp, depth, color, points, type_)
+        frame = Frame(timestamp, depth, color, points, type_)
+
+        if self.cache_frame:
+            self.cached_frames[timestamp] = frame
+        return frame
 
     def __iter__(self):
         for i in range(len(self.timestamps)):
