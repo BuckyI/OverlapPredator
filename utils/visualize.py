@@ -64,6 +64,7 @@ def pick_point(pcd: np.ndarray, point_size=2.0):
     """
     right click to pick a point from pcd
     return numpy.ndarray if picked, otherwise None
+    注意：此函数不可以在 jupyter notebook 中使用
     """
     plotter = pyvista.Plotter()
     plotter.add_points(pcd, color="blue", point_size=point_size)
