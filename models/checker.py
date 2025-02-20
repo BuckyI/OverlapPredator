@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 
 from utils.evaluate import evaluate_registration
@@ -39,8 +39,9 @@ def train_random_forest(X: np.ndarray, y: np.ndarray, test_size: float = 0.2) ->
     rf.fit(X_train, y_train)
     y_pred = rf.predict(X_test)
 
-    logger.info("准确率: {:.2f}%".format(accuracy_score(y_test, y_pred) * 100))
-    logger.info("召回率: {:.2f}%".format(recall_score(y_test, y_pred) * 100))
+    logger.info("准确率(accuracy): {:.2f}%".format(accuracy_score(y_test, y_pred) * 100))
+    logger.info("精度(precision): {:.2f}%".format(precision_score(y_test, y_pred) * 100))
+    logger.info("召回率(recall): {:.2f}%".format(recall_score(y_test, y_pred) * 100))
     logger.info("F1分数: {:.2f}%".format(f1_score(y_test, y_pred) * 100))
     return rf
 
