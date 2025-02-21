@@ -5,8 +5,11 @@ from typing import Dict, List, NamedTuple, Tuple, TypedDict
 import numpy as np
 import open3d as o3d
 import open3d.core as o3c
+from loguru import logger
 
 from datasets.tum import Frame
+from models.checker import Checker
+from utils.registration import GICP_registration
 
 from .convert import downsample, merge_points, transform
 
@@ -15,7 +18,90 @@ class Edge(NamedTuple):
     source_id: int
     target_id: int
     T_ts: np.ndarray
-    edge_type: str
+    edge_type: str  # ['loop', 'odometry']
+
+
+class Chunk:
+    "时序相邻的帧融合"
+
+    def __init__(self, dataset) -> None:
+        self.frame_ids: List = []
+        self.frame_poses: List[np.ndarray] = []  # frame2world
+        self.edges: List[Edge] = []
+
+        # 用于根据 frame_id 获取 frame
+        self.dataset = dataset
+        self.checker = Checker()
+
+    def _reg(self, sid, tid):
+        """
+        sid: source id in dataset
+        tid: target id in dataset
+        return:
+            flag: bool, True if valid
+            trans: np.ndarray, transformation matrix
+        """
+        sf, tf = self.dataset[sid], self.dataset[tid]
+        sp, tp = sf.pcd_array, tf.pcd_array
+
+        trans, _ = GICP_registration(sp, tp)
+        flag = self.checker.check_registration(sp, tp, trans)
+        logger.debug(f"REG {sid} -> {tid} valid: {flag}")
+        return flag, trans
+
+    def append(self, idx: int):
+        "append next frame, return status"
+        if not self.frame_ids:
+            self.frame_ids.append(idx)  # or timestamps
+            self.frame_poses.append(np.eye(4))
+            return "success"
+
+        sid, tid = idx, self.frame_ids[-1]
+        flag, trans = self._reg(sid, tid)
+        if not flag:
+            return "icp-failed"
+
+        self.frame_ids.append(idx)
+        self.frame_poses.append(self.frame_poses[-1] @ trans)
+        self.edges.append(Edge(sid, tid, trans, "odometry"))
+
+        # TODO: 位姿平移阈值、时间阈值
+        return "success"
+
+    def optimize(self):
+        pose_graph = o3d.pipelines.registration.PoseGraph()
+        for i in self.frame_poses:
+            pose_graph.nodes.append(o3d.pipelines.registration.PoseGraphNode(i))
+
+        frame2node = {self.frame_ids[i]: i for i in range(len(self.frame_ids))}
+        for e in self.edges:
+            edge = o3d.pipelines.registration.PoseGraphEdge(
+                frame2node[e.source_id],
+                frame2node[e.target_id],
+                e.T_ts,
+                uncertain=(e.edge_type != "odomerty"),
+            )
+            pose_graph.edges.append(edge)
+
+        pose_graph = optimize_pose_graph(pose_graph)
+        self.frame_poses = [n.pose for n in pose_graph.nodes]
+        logger.info("completed pose graph optimization")
+
+    def enhance(self):
+        "enhance the chunk by adding keyframe edges"
+        for k in [5, 10, 20, 30, 40, 50, 60]:  # TODO: keyframe selection
+            key_frames = self.frame_ids[::k]
+            key_poses = self.frame_poses[::k]
+            for i in range(1, len(key_frames)):
+                sid, tid = key_frames[i], key_frames[i - 1]
+                flag, trans = self._reg(sid, tid)
+                if flag:
+                    self.edges.append(Edge(sid, tid, trans, "skipframe"))
+
+    def transform(self, trans: np.ndarray):
+        "transform chunk by a transformation matrix"
+        poses = [trans @ p for p in self.frame_poses]
+        self.frame_poses = poses
 
 
 def construct_pose_graph(edges: List[Edge]):
