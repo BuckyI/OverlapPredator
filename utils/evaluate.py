@@ -16,7 +16,7 @@ from .convert import transform
 def get_trans_rot(t):
     "get translation and rotation from transformation matrix"
     trans = np.linalg.norm(t[:3, 3])
-    rot = np.arccos((np.trace(t[:3, :3]) - 1) / 2)
+    rot = np.arccos(np.clip((np.trace(t[:3, :3]) - 1) / 2, -1, 1))
     return trans, rot
 
 
@@ -35,7 +35,7 @@ def pose_difference2(t1: np.ndarray, t2: np.ndarray):
     """
     t = np.linalg.inv(t1) @ t2
     trans = np.linalg.norm(t[:3, 3])
-    rot = np.arccos((np.trace(t[:3, :3]) - 1) / 2)
+    rot = np.arccos(np.clip((np.trace(t[:3, :3]) - 1) / 2, -1, 1))
     return np.sqrt(trans**2 + 4 * rot**2)
 
 
