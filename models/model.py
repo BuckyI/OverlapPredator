@@ -476,18 +476,18 @@ class Model:
             dict(
                 T=T,
                 T0=result_ransac.transformation,
-                source_raw=src_pcd.cpu().numpy(),
-                target_raw=tgt_pcd.cpu().numpy(),
-                source_raw_scores=src_scores.cpu().numpy(),
-                target_raw_scores=tgt_scores.cpu().numpy(),
+                source_raw=src_pcd,  # to numpy
+                target_raw=tgt_pcd,  # to numpy
+                source_raw_scores=src_scores,  # to numpy
+                target_raw_scores=tgt_scores,  # to numpy
                 source=src_pcd_down,
                 target=tgt_pcd_down,
                 source_id=src_idx,
                 target_id=tgt_idx,
                 source_feats=src_feats_down,
                 target_feats=tgt_feats_down,
-                source_scores=src_score_down.cpu().numpy(),
-                target_scores=tgt_score_down.cpu().numpy(),
+                source_scores=src_score_down,  # to numpy
+                target_scores=tgt_score_down,  # to numpy
             )
             if debug
             else dict(T=T)
