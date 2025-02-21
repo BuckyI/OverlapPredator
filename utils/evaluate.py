@@ -39,9 +39,16 @@ def pose_difference2(t1: np.ndarray, t2: np.ndarray):
     return np.sqrt(trans**2 + 4 * rot**2)
 
 
-def chamfer_distance(a: np.ndarray, b: np.ndarray):
-    "计算两个点云之间的 chamfer 距离"
+def chamfer_distance(a: np.ndarray, b: np.ndarray, trans: np.ndarray = np.eye(4)):
+    """
+    计算两个点云之间的 chamfer 距离
+    a: source points
+    b: target points
+    trans: transformation matrix from a to b
+    return float
+    """
     assert a.shape[0] and b.shape[0], "点数量不能为0"
+    a = transform(a, trans)  # 位姿变换对齐
 
     tree1 = small_gicp.KdTree(a)
     tree2 = small_gicp.KdTree(b)
