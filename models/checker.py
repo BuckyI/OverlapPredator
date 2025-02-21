@@ -13,7 +13,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 
-from utils.evaluate import evaluate_registration
+from utils.evaluate import (
+    chamfer_distance,
+    chamfer_distance_feat,
+    evaluate_registration,
+)
 
 
 def check_registration(sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)) -> bool:
@@ -48,7 +52,7 @@ def train_random_forest(X: np.ndarray, y: np.ndarray, test_size: float = 0.2) ->
 
 @dataclass
 class Checker:
-    model_path: str = "weights/rf_cls_reg_fail.pkl"
+    model_path: str = "weights/rf_cls_reg_fail_v1.pkl"
 
     def __post_init__(self):
         assert Path(self.model_path).is_file(), f"{self.model_path} does not exists"
@@ -60,14 +64,47 @@ class Checker:
         """
         根据输入获得预测结果
         注意输入特征：
-        "similarity",
-        "range_similarity",
         "eval_fitness_down",
-        "eval_source_point_size_down",
-        "eval_target_point_size_down",
         "chamfer_distance_after_sampled",
-        "chamfer_distance_after_feat_down",
+        "chamfer_distance_after_feat_down"
+        return True 表示位姿变换与真值差异较大，配准异常
         """
-        if X.shape == (7,):  # 只有一个输入
+        if len(X.shape) == 1:  # 只有一个输入
             X = X.reshape(1, -1)
         return self.model.predict(X)
+
+    def check_registration(self, sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)) -> bool:
+        """
+        return True if the registration is valid
+        """
+        return check_registration(sp, tp, trans)
+
+    def check_model_registration(self, data: dict) -> bool:
+        """
+        data 模型配准阶段收集的数据，其中需要包括：
+            source: np.ndarray (N1, 3)
+            target: np.ndarray (N2, 3)
+            source_feats: np.ndarray (N1, 32)
+            target_feats: np.ndarray (N2, 32)
+            T: np.ndarray (4, 4)
+        return True if the registration is valid
+
+        Note: get data from model.registration(xx, debug=True)
+        """
+        source = data["source"]
+        target = data["target"]
+        source_feat = data["source_feats"]
+        target_feat = data["target_feats"]
+        trans = data["T"]
+
+        eval_result = evaluate_registration(source, target, trans, resolution=0.02)
+        fitness = eval_result["fitness"]
+        cd = chamfer_distance(source, target, trans)
+        cdf = chamfer_distance_feat(source, target, source_feat, target_feat, trans)
+
+        feat = np.array([fitness, cd, cdf]).reshape(1, 3)
+        proba = self.model.predict_proba(feat)
+        logger.debug(f"reg feat: {feat}, valid prob: {proba[0][0]}")
+
+        result = self.model.predict(feat)[0]
+        return not result
