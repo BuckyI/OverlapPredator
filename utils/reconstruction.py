@@ -52,6 +52,7 @@ class Chunk:
             flag: bool, True if valid
             trans: np.ndarray, transformation matrix
         """
+        assert self.dataset is not None and self.checker is not None, "this chunk is not initialized with dataset"
         sf, tf = self.dataset[sid], self.dataset[tid]
         sp, tp = sf.pcd_array, tf.pcd_array
 
@@ -113,6 +114,20 @@ class Chunk:
         "transform chunk by a transformation matrix"
         poses = [trans @ p for p in self.frame_poses]
         self.frame_poses = poses
+
+    def __getstate__(self):
+        return {
+            "frame_ids": self.frame_ids,
+            "frame_poses": self.frame_poses,
+            "edges": self.edges,
+        }
+
+    def __setstate__(self, state):
+        self.frame_ids = state["frame_ids"]
+        self.frame_poses = state["frame_poses"]
+        self.edges = state["edges"]
+        self.dataset = None
+        self.checker = None
 
 
 def construct_pose_graph(edges: List[Edge]):
