@@ -33,6 +33,17 @@ class Chunk:
         self.dataset = dataset
         self.checker = Checker()
 
+    def append_overlap(self, other_chunk: "Chunk", ratio: float = 0.3):
+        "将 other_chunk 的数据追加到 self 中，用以提升配准效果"
+        assert not self.frame_ids  # must be empty
+        k = int(len(other_chunk.frame_ids) * ratio)
+        self.frame_ids.extend(other_chunk.frame_ids[-k:])
+        self.frame_poses.extend(other_chunk.frame_poses[-k:])
+        for e in other_chunk.edges:
+            if e.source_id in self.frame_ids and e.target_id in self.frame_ids:
+                self.edges.append(e)
+        self.transform(np.linalg.inv(self.frame_poses[0]))  # turn to eye
+
     def _reg(self, sid, tid):
         """
         sid: source id in dataset
