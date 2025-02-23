@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Tuple, TypedDict
+from typing import Dict, List, NamedTuple, Optional, Tuple, TypedDict
 
 import numpy as np
 import open3d as o3d
@@ -338,6 +338,20 @@ def extract_pcd(vbg: o3d.t.geometry.VoxelBlockGrid) -> Tuple[np.ndarray, np.ndar
     points = pcd.point.positions.numpy()
     colors = pcd.point.colors.numpy()
     return points, colors
+
+
+def save_pcd(points: np.ndarray, colors: Optional[np.ndarray] = None, path: str = "pcd.ply"):
+    """
+    points: Nx3
+    colors: Nx3
+    path: xxx.ply
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    if colors:
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    return o3d.io.write_point_cloud(path, pcd, print_progress=True)
 
 
 def simple_merge_points(points: List[np.ndarray], poses: List[np.ndarray]):
