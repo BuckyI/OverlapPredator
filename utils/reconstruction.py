@@ -118,16 +118,14 @@ class Chunk:
         return poses
 
     def __getstate__(self):
-        return {
-            "frame_ids": self.frame_ids,
-            "frame_poses": self.frame_poses,
-            "edges": self.edges,
-        }
+        state = self.__dict__.copy()
+        del state["dataset"]
+        del state["checker"]
+        return state
 
     def __setstate__(self, state):
-        self.frame_ids = state["frame_ids"]
-        self.frame_poses = state["frame_poses"]
-        self.edges = state["edges"]
+        for k, v in state.items():
+            setattr(self, k, v)
         self.dataset = None
         self.checker = None
 
