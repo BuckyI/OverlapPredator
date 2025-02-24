@@ -307,7 +307,7 @@ class CacheSE(Storage):
         super().__init__(path, mode)
 
     def __setitem__(self, key: str, value: np.ndarray):
-        assert isinstance(value, np.ndarray), "其他类型的数据使用 save 方法"
+        assert isinstance(value, np.ndarray)
         if key in self.hdf5:
             logger.warning(f"Overwriting existing dataset: {key}.")
             del self.hdf5[key]
