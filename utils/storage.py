@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import h5py
+import joblib
 import numpy as np
 from loguru import logger
 
@@ -291,3 +292,34 @@ class RunCache(Storage):
             elif overwrite:
                 logger.warning("Overwriting existing attribute: {k} in step {key}.")
                 step.attrs[k] = v
+
+
+class CacheSE(Storage):
+    """
+    运行时缓存
+    不负责数据存在性判断或任何稳定性问题，调用程序本身负责
+    """
+
+    def __init__(self, path: str, mode="w-"):
+        """
+        mode: 'w-' 表示创建新文件，如果文件已存在则报错，适合单进程使用
+        """
+        super().__init__(path, mode)
+
+    def __setitem__(self, key: str, value: np.ndarray):
+        assert isinstance(value, np.ndarray), "其他类型的数据使用 save 方法"
+        if key in self.hdf5:
+            logger.warning(f"Overwriting existing dataset: {key}.")
+            del self.hdf5[key]
+        self.hdf5.create_dataset(key, data=value)
+
+    def __getitem__(self, key: str) -> np.ndarray:
+        return self.hdf5[key][:]  # type: ignore
+
+    @staticmethod
+    def dump(data: dict, path: str):
+        return joblib.dump(data, path)
+
+    @staticmethod
+    def load(path: str):
+        return joblib.load(path)
