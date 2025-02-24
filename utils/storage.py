@@ -317,7 +317,7 @@ class CacheSE(Storage):
         return self.hdf5[key][:]  # type: ignore
 
     @staticmethod
-    def dump(data: dict, path: str):
+    def dump(data, path: str):
         return joblib.dump(data, path)
 
     @staticmethod
