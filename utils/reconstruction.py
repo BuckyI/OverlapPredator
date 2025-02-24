@@ -110,10 +110,12 @@ class Chunk:
                 if flag:
                     self.edges.append(Edge(sid, tid, trans, "skipframe"))
 
-    def transform(self, trans: np.ndarray):
+    def transform(self, trans: np.ndarray, inplace: bool = True):
         "transform chunk by a transformation matrix"
         poses = [trans @ p for p in self.frame_poses]
-        self.frame_poses = poses
+        if inplace:
+            self.frame_poses = poses
+        return poses
 
     def __getstate__(self):
         return {
