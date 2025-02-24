@@ -304,7 +304,10 @@ class CacheSE(Storage):
         """
         mode: 'w-' 表示创建新文件，如果文件已存在则报错，适合单进程使用
         """
-        super().__init__(path, mode)
+        h5py.get_config().track_order = True  # 保证读取顺序按照插入顺序
+        self.mode = mode
+        self.path = path
+        self.hdf5 = h5py.File(path, mode)
 
     def __setitem__(self, key: str, value: np.ndarray):
         assert isinstance(value, np.ndarray)
