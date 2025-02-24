@@ -29,6 +29,9 @@ class Chunk:
         self.frame_poses: List[np.ndarray] = []  # frame2world
         self.edges: List[Edge] = []
 
+        self.init_resource(dataset)
+
+    def init_resource(self, dataset):
         # 用于根据 frame_id 获取 frame
         self.dataset = dataset
         self.checker = Checker()
