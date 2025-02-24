@@ -160,7 +160,14 @@ def construct_pose_graph(edges: List[Edge]):
     # 尝试构建初始顶点位置
     init_poses = [np.eye(4)]
     for i in range(1, len(node_ids)):
-        T_ts = odometry_edges[(node_ids[i], node_ids[i - 1])]
+        if (node_ids[i], node_ids[i - 1]) in odometry_edges:
+            T_ts = odometry_edges[(node_ids[i], node_ids[i - 1])]
+        elif (node_ids[i - 1], node_ids[i]) in odometry_edges:
+            T_st = odometry_edges[(node_ids[i - 1], node_ids[i])]
+            T_ts = np.linalg.inv(T_st)
+        else:
+            raise ValueError(f"no odometry edge between {node_ids[i-1]} and {node_ids[i]}")
+
         init_poses.append(init_poses[-1] @ T_ts)
     assert len(init_poses) == len(node_ids)
     for i in range(len(node_ids)):
