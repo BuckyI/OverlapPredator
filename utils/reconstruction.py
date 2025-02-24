@@ -24,7 +24,8 @@ class Edge(NamedTuple):
 class Chunk:
     "时序相邻的帧融合"
 
-    def __init__(self, dataset) -> None:
+    def __init__(self, dataset, id=None) -> None:
+        self.id = id  # chunk identifier
         self.frame_ids: List = []
         self.frame_poses: List[np.ndarray] = []  # frame2world
         self.edges: List[Edge] = []
