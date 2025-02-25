@@ -3,7 +3,7 @@ Azure Kinect Dataset
 """
 
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, Generator, List, NamedTuple, Optional, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -117,4 +117,14 @@ class KinectDataset:
         groups = self.batch_load_(timestamps=timestamps)
         depths = [np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16) for g in groups]
         colors = [np.asarray(g["frame_color"]) for g in groups]
+        return depths, colors
+
+    def batch_load_rgbd_iter(self, timestamps: Union[List[str], List[int]]):
+        """
+        加载可用于 TSDF 融合的数据
+        return depths, colors
+        """
+        groups = self.batch_load_(timestamps=timestamps)
+        depths = (np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16) for g in groups)
+        colors = (np.asarray(g["frame_color"]) for g in groups)
         return depths, colors
