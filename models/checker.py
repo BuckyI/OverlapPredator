@@ -79,7 +79,7 @@ class Checker:
         """
         return check_registration(sp, tp, trans)
 
-    def check_model_registration(self, data: dict) -> bool:
+    def check_model_registration(self, data: dict, threshold: float = 0.5) -> bool:
         """
         data 模型配准阶段收集的数据，其中需要包括：
             source: np.ndarray (N1, 3)
@@ -87,6 +87,7 @@ class Checker:
             source_feats: np.ndarray (N1, 32)
             target_feats: np.ndarray (N2, 32)
             T: np.ndarray (4, 4)
+            threshold: float, default 0.5, valid prob threshold
         return True if the registration is valid
 
         Note: get data from model.registration(xx, debug=True)
@@ -106,5 +107,6 @@ class Checker:
         proba = self.model.predict_proba(feat)
         logger.debug(f"reg feat: {feat}, valid prob: {proba[0][0]}")
 
-        result = self.model.predict(feat)[0]
-        return not result
+        # result = self.model.predict(feat)[0]
+        # return not result
+        return proba[0][0] > threshold
