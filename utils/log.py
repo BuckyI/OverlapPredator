@@ -5,6 +5,7 @@ from loguru import logger
 log_formats = [
     "<light-yellow>[{level}]</> {message}",
     "<level>[{level}]</> {message} <light-yellow>({function}:{line})</>",
+    "<level>[{level}]</> {message} <light-yellow>({function}:{line})</> <light-blue>({elapsed})</>",
 ]
 
 
