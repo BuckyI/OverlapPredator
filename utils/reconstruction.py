@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple, TypedDict
+from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple, TypedDict
 
 import numpy as np
 import open3d as o3d
@@ -272,14 +272,14 @@ def tsdf(
 
 
 def tsdf2(
-    depths: List[np.ndarray],
-    colors: List[np.ndarray],
-    poses: List[np.ndarray],
+    depths: Iterable[np.ndarray],
+    colors: Iterable[np.ndarray],
+    poses: Iterable[np.ndarray],
     K: np.ndarray,
     depth_scale: float,
     depth_max: float = 5.0,
     vol_size: float = 3.0 / 512,
-):
+) -> o3d.t.geometry.VoxelBlockGrid:
     """
     tsdf from nparray
     PLEASE CHECK DATATYPE:
