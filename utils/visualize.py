@@ -28,13 +28,28 @@ def get_pcd_data(pcd: np.ndarray, value=None):
     return pdata
 
 
-def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None):
+
+def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None, export: Optional[str] = None):
+    # pdata = pyvista.PolyData(pcd)
+    # if value is not None:
+    #     pdata["value"] = value
+    #     pdata.plot(point_size=point_size, scalars="value", cmap="coolwarm")
+    # else:
+    #     pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
+
+    p = pyvista.Plotter()
     pdata = pyvista.PolyData(pcd)
     if value is not None:
         pdata["value"] = value
-        pdata.plot(point_size=point_size, scalars="value", cmap="coolwarm")
+        p.add_points(pdata, scalars="value", cmap="coolwarm", point_size=point_size)
     else:
-        pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
+        p.add_points(pcd, color="red", point_size=point_size)
+    p.add_title(title, font_size=14)
+
+    if export and export.endswith(".html"):
+        p.export_html(export)
+    else:
+        p.show()
 
 
 def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: Optional[str] = None):
