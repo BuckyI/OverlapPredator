@@ -41,7 +41,9 @@ def transform(source: np.ndarray, trans: np.ndarray):
 
 def downsample(points: np.ndarray, resolution: float) -> np.ndarray:
     "对点云进行网格下采样"
-    return small_gicp.voxelgrid_sampling(points, downsampling_resolution=resolution).points()[:, :3]
+    return small_gicp.voxelgrid_sampling(
+        points, downsampling_resolution=resolution
+    ).points()[:, :3]
 
 
 def merge_points(points_list: List[np.ndarray]) -> np.ndarray:
@@ -60,5 +62,7 @@ def compute_vertex(depth: np.ndarray, K: np.ndarray) -> np.ndarray:
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
 
     X, Y = np.meshgrid(np.arange(0, W), np.arange(0, H))  # [H, W]
-    vertex = np.stack([(X - cx) / fx, (Y - cy) / fy, np.ones_like(X)], -1) * depth[..., None]  # [H, W, 3]
+    vertex = (
+        np.stack([(X - cx) / fx, (Y - cy) / fy, np.ones_like(X)], -1) * depth[..., None]
+    )  # [H, W, 3]
     return vertex

@@ -73,7 +73,10 @@ def chamfer_distance_feat(sp, tp, sf, tf, trans: np.ndarray = np.eye(4)) -> floa
     idx1, dist1 = tree1.batch_nearest_neighbor_search(tp)
     idx2, dist2 = tree2.batch_nearest_neighbor_search(sp)
 
-    return np.linalg.norm((tf - sf[idx1]), axis=1).mean() + np.linalg.norm((sf - tf[idx2]), axis=1).mean()
+    return (
+        np.linalg.norm((tf - sf[idx1]), axis=1).mean()
+        + np.linalg.norm((sf - tf[idx2]), axis=1).mean()
+    )
 
 
 @torch.jit.script
@@ -119,11 +122,19 @@ def check_data_consistency(data1: dict, data2: dict, verbose: bool = True):
     """检验两个 dict 内的数据是否一致"""
 
     def _all_close(a, b, name=""):
-        if isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor) and not torch.allclose(i, j):
+        if (
+            isinstance(a, torch.Tensor)
+            and isinstance(b, torch.Tensor)
+            and not torch.allclose(i, j)
+        ):
             e = torch.abs(i - j).mean()
             msg = f"{name}[Tensor] not equal, mean error: {e}"
             return msg
-        if isinstance(a, np.ndarray) and isinstance(b, np.ndarray) and not np.allclose(i, j):
+        if (
+            isinstance(a, np.ndarray)
+            and isinstance(b, np.ndarray)
+            and not np.allclose(i, j)
+        ):
             e = np.abs(i - j).mean()
             msg = f"{name}[ndarray] not equal, mean error: {e}"
             return msg
@@ -173,7 +184,9 @@ def show_roc_curve(y_true, probas_pred):
     print("auc score:", auc_score)
 
     plt.figure()
-    plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {auc_score:.2f})")
+    plt.plot(
+        fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {auc_score:.2f})"
+    )
     plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -206,7 +219,8 @@ def evaluate_pose_graph(pose_graph, dataset, frame_ids: List[int]):
             "transformation": e.transformation,
             "gt_transformation": gt_T,
             "error": pose_difference2(e.transformation, gt_T),
-            "is_loop": (abs(sf.timestamp - tf.timestamp) > 5) and (pose_difference2(tf.pose, sf.pose) < 1),
+            "is_loop": (abs(sf.timestamp - tf.timestamp) > 5)
+            and (pose_difference2(tf.pose, sf.pose) < 1),
         }
         edge_data.append(data)
     edge_data = pd.DataFrame(edge_data)

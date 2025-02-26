@@ -28,8 +28,14 @@ def get_pcd_data(pcd: np.ndarray, value=None):
     return pdata
 
 
-
-def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None, export: Optional[str] = None):
+def show_pcd(
+    pcd: np.ndarray,
+    *,
+    title="PCD",
+    point_size=1.0,
+    value=None,
+    export: Optional[str] = None,
+):
     # pdata = pyvista.PolyData(pcd)
     # if value is not None:
     #     pdata["value"] = value
@@ -52,7 +58,12 @@ def show_pcd(pcd: np.ndarray, *, title="PCD", point_size=1.0, value=None, export
         p.show()
 
 
-def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: Optional[str] = None):
+def show_pcds(
+    *pcds: List[np.ndarray],
+    title="PCDs",
+    point_size=1.0,
+    export: Optional[str] = None,
+):
     p = pyvista.Plotter()
     # colors = np.random.randint(0, 256, size=(len(pcds), 3))
     colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
@@ -64,7 +75,12 @@ def show_pcds(*pcds: List[np.ndarray], title="PCDs", point_size=1.0, export: Opt
         p.show()
 
 
-def show_pcds_parallel(*pcds: List[np.ndarray], titles: Optional[List[str]] = None, point_size=1.0, color="red"):
+def show_pcds_parallel(
+    *pcds: List[np.ndarray],
+    titles: Optional[List[str]] = None,
+    point_size=1.0,
+    color="red",
+):
     N = len(pcds)
     titles = titles or ["" for _ in range(N)]
     p = pyvista.Plotter(shape=(1, N))
@@ -83,7 +99,9 @@ def pick_point(pcd: np.ndarray, point_size=2.0):
     """
     plotter = pyvista.Plotter()
     plotter.add_points(pcd, color="blue", point_size=point_size)
-    plotter.enable_point_picking(color="red", show_message="Pick a point with right click")
+    plotter.enable_point_picking(
+        color="red", show_message="Pick a point with right click"
+    )
     plotter.show()
     return plotter.picked_point
 
@@ -109,7 +127,15 @@ def show_pcd_with_keypoints(
     p.show()
 
 
-def show_transformation(source, target, T, *, title="Transformation", point_size=1.0, export: Optional[str] = None):
+def show_transformation(
+    source,
+    target,
+    T,
+    *,
+    title="Transformation",
+    point_size=1.0,
+    export: Optional[str] = None,
+):
     "检查 transformation 是否正确"
     source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
     source_trans = (source_homo @ T.transpose())[..., :3]  # N, 3
@@ -158,7 +184,9 @@ def show_pose_graph(graph, cond: Optional[Callable] = None):
     nodes = [n.pose[:3, 3] for n in graph.nodes]
     # ref: PyVista documentation https://docs.pyvista.org/examples/00-load/create-truss
     # add 2 to indicate to vtk how many points per edge
-    edges = np.array([[2, e.source_node_id, e.target_node_id] for e in graph.edges if cond(e)])
+    edges = np.array(
+        [[2, e.source_node_id, e.target_node_id] for e in graph.edges if cond(e)]
+    )
     confidence = np.array([e.confidence for e in graph.edges if cond(e)])
 
     mesh = pyvista.PolyData(nodes, edges)

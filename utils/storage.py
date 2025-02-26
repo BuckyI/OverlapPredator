@@ -23,7 +23,9 @@ def peek_structure(f):
         if isinstance(t, h5py.Dataset):
             return t.shape
         elif isinstance(t, h5py.Group):
-            if all(k.replace(".", "").isdigit() for k in t.keys()):  # list, keys are numbers (int, float)
+            if all(
+                k.replace(".", "").isdigit() for k in t.keys()
+            ):  # list, keys are numbers (int, float)
                 return [{kk: _peek(vv)} for _, (kk, vv) in zip(range(2), t.items())]
             return {k: _peek(v) for k, v in t.items()}
         else:
@@ -103,7 +105,9 @@ def update_attrs(group: h5py.Group, attrs: dict, overwrite: bool = False):
             logger.warning(f"Attribute {k} already exists, skip.")
 
 
-def load_from_group(group: h5py.Group, keys: Optional[List[str]] = None, recursive=False) -> DATA_TYPE:
+def load_from_group(
+    group: h5py.Group, keys: Optional[List[str]] = None, recursive=False
+) -> DATA_TYPE:
     """
     读取指定的数据
     group: h5py.Group | h5py.File, 需要加载数据的来源
@@ -204,7 +208,9 @@ class DatasetCache(Storage):
             "upsamples",
             "features",
         ]
-        return load_from_group(self.get_frame_group(dataset, timestamp), required_fields)
+        return load_from_group(
+            self.get_frame_group(dataset, timestamp), required_fields
+        )
 
 
 class RunCache(Storage):
@@ -247,7 +253,11 @@ class RunCache(Storage):
         if self.index_ is None:
             logger.info("为快速查找，开始建立索引")
             self.index_ = {
-                (g.attrs["dataset_id"], g.attrs["source_timestamp"], g.attrs["target_timestamp"]): k
+                (
+                    g.attrs["dataset_id"],
+                    g.attrs["source_timestamp"],
+                    g.attrs["target_timestamp"],
+                ): k
                 for k, g in self.hdf5.items()
             }
             logger.info("索引建立完毕")

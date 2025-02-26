@@ -20,7 +20,9 @@ from utils.evaluate import (
 )
 
 
-def check_registration(sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)) -> bool:
+def check_registration(
+    sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)
+) -> bool:
     """
     根据 source, target 点云以及配准位姿变换结果，评估是否有可能是配准失败的错误边。
     使用场景：逐帧 GICP 配准评估（阈值在此场景下进行测试和验证）
@@ -35,18 +37,22 @@ def check_registration(sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.ey
     )
 
 
-def train_random_forest(X: np.ndarray, y: np.ndarray, test_size: float = 0.2) -> RandomForestClassifier:
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+def train_random_forest(
+    X: np.ndarray, y: np.ndarray, test_size: float = 0.2
+) -> RandomForestClassifier:
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=42
+    )
 
     rf = RandomForestClassifier(n_estimators=200, random_state=42, oob_score=True)
     logger.info("开始训练随机森林分类器")
     rf.fit(X_train, y_train)
     y_pred = rf.predict(X_test)
 
-    logger.info("准确率(accuracy): {:.2f}%".format(accuracy_score(y_test, y_pred) * 100))
-    logger.info("精度(precision): {:.2f}%".format(precision_score(y_test, y_pred) * 100))
-    logger.info("召回率(recall): {:.2f}%".format(recall_score(y_test, y_pred) * 100))
-    logger.info("F1分数: {:.2f}%".format(f1_score(y_test, y_pred) * 100))
+    logger.info("accuracy: {:.2f}%".format(accuracy_score(y_test, y_pred) * 100))
+    logger.info("precision: {:.2f}%".format(precision_score(y_test, y_pred) * 100))
+    logger.info("recall: {:.2f}%".format(recall_score(y_test, y_pred) * 100))
+    logger.info("f1 score: {:.2f}%".format(f1_score(y_test, y_pred) * 100))
     return rf
 
 
@@ -73,7 +79,9 @@ class Checker:
             X = X.reshape(1, -1)
         return self.model.predict(X)
 
-    def check_registration(self, sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)) -> bool:
+    def check_registration(
+        self, sp: np.ndarray, tp: np.ndarray, trans: np.ndarray = np.eye(4)
+    ) -> bool:
         """
         return True if the registration is valid
         """

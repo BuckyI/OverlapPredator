@@ -39,7 +39,9 @@ def extract_target_points(depth: np.ndarray, mask: np.ndarray, K: np.ndarray):
     return np.asarray(pcd.points)
 
 
-def extract_target_points_o3d(depth: np.ndarray, mask: np.ndarray, K: np.ndarray, color: np.ndarray) -> np.ndarray:
+def extract_target_points_o3d(
+    depth: np.ndarray, mask: np.ndarray, K: np.ndarray, color: np.ndarray
+) -> np.ndarray:
     """
     提取目标的彩色点云
     depth: 深度图

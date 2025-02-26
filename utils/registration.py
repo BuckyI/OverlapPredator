@@ -40,7 +40,9 @@ def GICP_registration(
     return result.T_target_source, result
 
 
-def GICP_registrations(source: np.ndarray, target: np.ndarray, init_T: Optional[np.ndarray] = None):
+def GICP_registrations(
+    source: np.ndarray, target: np.ndarray, init_T: Optional[np.ndarray] = None
+):
     """以 (0.25, 0.1, 0.02) 的分辨率执行分层 GICP 配准，稳定性更高"""
     T = init_T or np.eye(4)
     for r in (0.25, 0.1, 0.02):
@@ -59,8 +61,12 @@ def GICP_registration_with_evaluation(
     [hang 先不手动实现评价指标的计算了]
     """
     raise NotImplementedError("还未完工")
-    target, target_tree = small_gicp.preprocess_points(target, downsampling_resolution=resolution)
-    source, source_tree = small_gicp.preprocess_points(source, downsampling_resolution=resolution)
+    target, target_tree = small_gicp.preprocess_points(
+        target, downsampling_resolution=resolution
+    )
+    source, source_tree = small_gicp.preprocess_points(
+        source, downsampling_resolution=resolution
+    )
     # `target` and `source` are small_gicp.PointCloud with the following methods
     # target.size()           # Number of points
     # target.points()         # Nx4 numpy array   [x, y, z, 1] x N

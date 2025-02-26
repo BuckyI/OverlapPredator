@@ -50,7 +50,9 @@ class Chunk:
             if e.source_id in self.frame_ids and e.target_id in self.frame_ids:
                 self.edges.append(e)
         pose = self.frame_poses[0].copy()
-        self.transform(np.linalg.inv(pose))  # turn to eye, make frames relative to first frame
+        self.transform(
+            np.linalg.inv(pose)
+        )  # turn to eye, make frames relative to first frame
         return pose
 
     def _reg(self, sid, tid):
@@ -61,7 +63,9 @@ class Chunk:
             flag: bool, True if valid
             trans: np.ndarray, transformation matrix
         """
-        assert self.dataset is not None and self.checker is not None, "this chunk is not initialized with dataset"
+        assert (
+            self.dataset is not None and self.checker is not None
+        ), "this chunk is not initialized with dataset"
         sf, tf = self.dataset[sid], self.dataset[tid]
         sp, tp = sf.pcd_array, tf.pcd_array
 
@@ -149,14 +153,18 @@ def construct_pose_graph(edges: List[Edge]):
         open3d.pipelines.registration.PoseGraph: pose graph
         node_ids(list): node id -> frame id 用于查找数据集中的帧
     """
-    node_ids = np.unique([[e.source_id, e.target_id] for e in edges]).tolist()  # node id -> frame id
+    node_ids = np.unique(
+        [[e.source_id, e.target_id] for e in edges]
+    ).tolist()  # node id -> frame id
     # Note: np.unique returns the *sorted* unique elements of an array.
     frame2node = {node_ids[i]: i for i in range(len(node_ids))}
 
     pose_graph = o3d.pipelines.registration.PoseGraph()
 
     # 添加顶点
-    odometry_edges = dict(((e.source_id, e.target_id), e.T_ts) for e in edges if e.edge_type == "odometry")
+    odometry_edges = dict(
+        ((e.source_id, e.target_id), e.T_ts) for e in edges if e.edge_type == "odometry"
+    )
     # 尝试构建初始顶点位置
     init_poses = [np.eye(4)]
     for i in range(1, len(node_ids)):
@@ -166,7 +174,9 @@ def construct_pose_graph(edges: List[Edge]):
             T_st = odometry_edges[(node_ids[i - 1], node_ids[i])]
             T_ts = np.linalg.inv(T_st)
         else:
-            raise ValueError(f"no odometry edge between {node_ids[i-1]} and {node_ids[i]}")
+            raise ValueError(
+                f"no odometry edge between {node_ids[i-1]} and {node_ids[i]}"
+            )
 
         init_poses.append(init_poses[-1] @ T_ts)
     assert len(init_poses) == len(node_ids)
@@ -255,7 +265,9 @@ def tsdf(
         intrinsic = o3d.core.Tensor(frame.K, o3d.core.Dtype.Float64)
         extrinsic = o3d.core.Tensor(np.linalg.inv(pose), o3d.core.Dtype.Float64)
 
-        frustum_block_coords = vbg.compute_unique_block_coordinates(depth, intrinsic, extrinsic, depth_scale, depth_max)
+        frustum_block_coords = vbg.compute_unique_block_coordinates(
+            depth, intrinsic, extrinsic, depth_scale, depth_max
+        )
         # Nx3 tensor
         vbg.integrate(
             frustum_block_coords,
@@ -328,7 +340,9 @@ def tsdf2(
     return vbg
 
 
-def save_scene(vbg: o3d.t.geometry.VoxelBlockGrid, path: str = "scene.ply", type: str = "pcd"):
+def save_scene(
+    vbg: o3d.t.geometry.VoxelBlockGrid, path: str = "scene.ply", type: str = "pcd"
+):
     """
     path: xxx.ply
     type: pcd or mesh
@@ -356,7 +370,9 @@ def extract_pcd(vbg: o3d.t.geometry.VoxelBlockGrid) -> Tuple[np.ndarray, np.ndar
     return points, colors
 
 
-def save_pcd(points: np.ndarray, colors: Optional[np.ndarray] = None, path: str = "pcd.ply"):
+def save_pcd(
+    points: np.ndarray, colors: Optional[np.ndarray] = None, path: str = "pcd.ply"
+):
     """
     points: Nx3
     colors: Nx3
