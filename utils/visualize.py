@@ -5,6 +5,17 @@ import numpy as np
 import open3d as o3d
 import pyvista
 
+# global settings
+ADJUST_CAMERA: bool = True
+
+
+def create_plotter():
+    plotter = pyvista.Plotter()
+    if ADJUST_CAMERA:
+        plotter.camera_position = "yx"
+        plotter.camera.roll -= 90
+    return plotter
+
 
 def transform(source: np.ndarray, trans: np.ndarray):
     """
@@ -42,8 +53,7 @@ def show_pcd(
     #     pdata.plot(point_size=point_size, scalars="value", cmap="coolwarm")
     # else:
     #     pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
-
-    p = pyvista.Plotter()
+    p = create_plotter()
     pdata = pyvista.PolyData(pcd)
     if value is not None:
         pdata["value"] = value
@@ -64,7 +74,7 @@ def show_pcds(
     point_size=1.0,
     export: Optional[str] = None,
 ):
-    p = pyvista.Plotter()
+    p = create_plotter()
     # colors = np.random.randint(0, 256, size=(len(pcds), 3))
     colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
     for pcd, c in zip(pcds, colors):
@@ -97,7 +107,7 @@ def pick_point(pcd: np.ndarray, point_size=2.0):
     return numpy.ndarray if picked, otherwise None
     注意：此函数不可以在 jupyter notebook 中使用
     """
-    plotter = pyvista.Plotter()
+    plotter = create_plotter()
     plotter.add_points(pcd, color="blue", point_size=point_size)
     plotter.enable_point_picking(
         color="red", show_message="Pick a point with right click"
@@ -118,7 +128,7 @@ def show_pcd_with_keypoints(
     kps: M, 3 keypoints，使用红色点展示
     scalars: 如果设定，点云按照值映射颜色，否则展示为蓝色
     """
-    p = pyvista.Plotter()
+    p = create_plotter()
     if scalars is not None:
         p.add_points(pcd, scalars=scalars, point_size=pcd_point_size)
     else:
@@ -139,7 +149,7 @@ def show_transformation(
     "检查 transformation 是否正确"
     source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
     source_trans = (source_homo @ T.transpose())[..., :3]  # N, 3
-    p = pyvista.Plotter()
+    p = create_plotter()
     p.add_points(source_trans, opacity=0.85, color="red", point_size=point_size)
     p.add_points(target, opacity=0.85, color="blue", point_size=point_size)
     if export and export.endswith(".html"):
@@ -167,7 +177,7 @@ def show_colored_points(points: np.ndarray, colors: np.ndarray, *, point_size=1.
     points: N, 3
     colors: N, 3
     """
-    plotter = pyvista.Plotter()
+    plotter = create_plotter()
     plotter.add_points(points, scalars=colors, rgb=True, point_size=point_size)
     plotter.show()
 
