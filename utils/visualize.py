@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -168,6 +168,41 @@ def show_rgbd_image(depth: np.ndarray, color: np.ndarray, *, colorbar: bool = Fa
     if colorbar:
         fig.colorbar(img)
     plt.tight_layout()
+    plt.show()
+
+
+def get_masked_image(
+    color: np.ndarray,
+    mask: np.ndarray,
+    alpha: float = 0.5,
+    mask_color: Tuple[int, int, int] = (123, 104, 238),
+):
+    """
+    get RGB-D image overlaped with an instance mask
+    color: H, W, 3
+    mask: H, W
+    alpha: the transparency of the mask
+    """
+    assert mask.shape == color.shape[:2]
+    image = color.copy()
+    image[mask == 1] = (1 - alpha) * image[mask == 1] + alpha * np.array(mask_color)
+    return image
+
+
+def show_masked_image(color: np.ndarray, mask: np.ndarray, save: Optional[str] = None):
+    "display RGB-D image with mask"
+    assert mask.shape == color.shape[:2]
+    mask_color = (123, 104, 238, int(0.8 * 255))
+
+    colored_mask = np.zeros((*mask.shape, 4), dtype=np.uint8)
+    colored_mask[mask == 1] = mask_color
+    plt.figure()
+    plt.imshow(color)
+    plt.imshow(colored_mask)
+    plt.axis("off")
+    plt.tight_layout()
+    if save:
+        plt.savefig(save, bbox_inches="tight", pad_inches=0.0)
     plt.show()
 
 
