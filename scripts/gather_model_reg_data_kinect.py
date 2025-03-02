@@ -106,6 +106,7 @@ for i, t1 in enumerate(timestamps):
         meta["source_scores_down"] = reg_result["source_scores"]
         meta["target_scores_down"] = reg_result["target_scores"]
 
+        # BUG: chamfer_distance_before 字段被覆盖了，之前记录了降采样之前的 CD 距离。
         meta["chamfer_distance_before"] = chamfer_distance(source_raw, target_raw)
         meta["chamfer_distance_after"] = chamfer_distance(transform(source_raw, T), target_raw)
         meta["chamfer_distance_after_sampled"] = chamfer_distance(transform(source_down, T), target_down)
