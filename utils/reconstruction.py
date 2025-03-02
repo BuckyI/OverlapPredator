@@ -1,6 +1,16 @@
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple, TypedDict
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Protocol,
+    Tuple,
+    TypedDict,
+)
 
 import numpy as np
 import open3d as o3d
@@ -21,21 +31,24 @@ class Edge(NamedTuple):
     edge_type: str  # ['loop', 'odometry']
 
 
+class RegFuncType(Protocol):
+    def __call__(
+        self, sid: int, tid: int, init: np.ndarray = np.eye(4)
+    ) -> Tuple[bool, np.ndarray]: ...
+
+
 class Chunk:
     "时序相邻的帧融合"
 
-    def __init__(self, dataset, id=None) -> None:
+    def __init__(self, reg_func: RegFuncType, id=None) -> None:
+        """
+        reg_func: (source_id, target_id) -> (bool, trans) 用于配准原始视频帧
+        """
         self.id = id  # chunk identifier
         self.frame_ids: List = []
         self.frame_poses: List[np.ndarray] = []  # frame2world
         self.edges: List[Edge] = []
-
-        self.init_resource(dataset)
-
-    def init_resource(self, dataset):
-        # 用于根据 frame_id 获取 frame
-        self.dataset = dataset
-        self.checker = Checker()
+        self.register = reg_func
 
     def append_overlap(self, other_chunk: "Chunk", ratio: float = 0.3):
         """
@@ -55,25 +68,6 @@ class Chunk:
         )  # turn to eye, make frames relative to first frame
         return pose
 
-    def _reg(self, sid, tid):
-        """
-        sid: source id in dataset
-        tid: target id in dataset
-        return:
-            flag: bool, True if valid
-            trans: np.ndarray, transformation matrix
-        """
-        assert (
-            self.dataset is not None and self.checker is not None
-        ), "this chunk is not initialized with dataset"
-        sf, tf = self.dataset[sid], self.dataset[tid]
-        sp, tp = sf.pcd_array, tf.pcd_array
-
-        trans, _ = GICP_registration(sp, tp)
-        flag = self.checker.check_registration(sp, tp, trans)
-        logger.debug(f"REG {sid} -> {tid} valid: {flag}")
-        return flag, trans
-
     def append(self, idx: int):
         "append next frame, return status"
         if not self.frame_ids:
@@ -82,7 +76,7 @@ class Chunk:
             return "success"
 
         sid, tid = idx, self.frame_ids[-1]
-        flag, trans = self._reg(sid, tid)
+        flag, trans = self.register(sid, tid)
         if not flag:
             return "icp-failed"
 
@@ -119,7 +113,8 @@ class Chunk:
             key_poses = self.frame_poses[::k]
             for i in range(1, len(key_frames)):
                 sid, tid = key_frames[i], key_frames[i - 1]
-                flag, trans = self._reg(sid, tid)
+                init_pose = np.linalg.inv(key_poses[i - 1]) @ key_poses[i]  # sid -> tid
+                flag, trans = self.register(sid, tid, init_pose)
                 if flag:
                     self.edges.append(Edge(sid, tid, trans, "skipframe"))
 
@@ -132,15 +127,11 @@ class Chunk:
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["dataset"]
-        del state["checker"]
         return state
 
     def __setstate__(self, state):
         for k, v in state.items():
             setattr(self, k, v)
-        self.dataset = None
-        self.checker = None
 
 
 def construct_pose_graph(edges: List[Edge]):
