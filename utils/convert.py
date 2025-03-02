@@ -28,6 +28,17 @@ def matrix2euler(trans):
     return np.array((r, t)).flatten()
 
 
+def average_poses(poses: List[np.ndarray]) -> np.ndarray:
+    "计算多个变换矩阵的平均值"
+    rot = R.from_matrix([p[:3, :3] for p in poses]).mean().as_matrix()
+    trans = np.mean([p[:3, 3] for p in poses], axis=0)
+
+    pose = np.eye(4)
+    pose[:3, :3] = rot
+    pose[:3, 3] = trans
+    return pose
+
+
 def transform(source: np.ndarray, trans: np.ndarray):
     """
     对点云进行坐标变换
