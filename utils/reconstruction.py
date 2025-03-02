@@ -33,7 +33,7 @@ class Edge(NamedTuple):
 
 class RegFuncType(Protocol):
     def __call__(
-        self, sid: int, tid: int, init: np.ndarray = np.eye(4)
+        self, sid: int, tid: int, init_T: np.ndarray = np.eye(4)
     ) -> Tuple[bool, np.ndarray]: ...
 
 
