@@ -15,6 +15,7 @@ from typing import (
 import numpy as np
 import open3d as o3d
 import open3d.core as o3c
+from joblib import Parallel, delayed
 from loguru import logger
 
 from datasets.tum import Frame
@@ -117,6 +118,29 @@ class Chunk:
                 flag, trans = self.register(sid, tid, init_pose)
                 if flag:
                     self.edges.append(Edge(sid, tid, trans, "skipframe"))
+
+    def enhance_parallel(self):
+        "enhance the chunk by adding keyframe edges"
+
+        def _register(sid: int, tid: int, init_pose: np.ndarray):
+            flag, trans = self.register(sid, tid, init_pose)
+            edge_type = "skipframe" if flag else "skipframe-failed"
+            return Edge(sid, tid, trans, edge_type)
+
+        multi_work = Parallel(n_jobs=-1, backend="multiprocessing")
+        tasks = []
+        for k in [5, 10, 20, 30, 40, 50, 60]:  # TODO: keyframe selection
+            key_frames = self.frame_ids[::k]
+            key_poses = self.frame_poses[::k]
+            for i in range(1, len(key_frames)):
+                sid, tid = key_frames[i], key_frames[i - 1]
+                init_pose = np.linalg.inv(key_poses[i - 1]) @ key_poses[i]  # sid -> tid
+                tasks.append(delayed(_register)(sid, tid, init_pose))
+        edges = multi_work(tasks)
+        for e in edges:
+            assert isinstance(e, Edge)  # for type hint
+            if e.edge_type != "skipframe-failed":
+                self.edges.append(e)
 
     def transform(self, trans: np.ndarray, inplace: bool = True):
         "transform chunk by a transformation matrix"
