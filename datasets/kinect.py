@@ -27,9 +27,10 @@ class KinectDataset:
     读取 HDF5 缓存的 Kinect 数据集
     """
 
-    def __init__(self, cache_path: str, cache_frame: bool = True):
+    def __init__(self, cache_path: str, cache_frame: bool = False):
         """
-        cache_frame: 内存中缓存预处理过后的 Frame，避免重复计算  [临时 workaround #TODO]
+        cache_frame: default False 内存中缓存预处理过后的 Frame，避免重复预处理
+        推荐设为 False，调用显式的缓存模块缓存预处理的视频帧数据。
         """
         assert Path(cache_path).is_file()
         self.cache = DatasetCache(cache_path, "r")
@@ -109,13 +110,18 @@ class KinectDataset:
         assert all(isinstance(g, h5py.Group) for g in groups)
         return groups  # type: ignore
 
-    def batch_load_rgbd(self, timestamps: Union[List[str], List[int]]) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    def batch_load_rgbd(
+        self, timestamps: Union[List[str], List[int]]
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         加载可用于 TSDF 融合的数据
         return depths, colors
         """
         groups = self.batch_load_(timestamps=timestamps)
-        depths = [np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16) for g in groups]
+        depths = [
+            np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16)
+            for g in groups
+        ]
         colors = [np.asarray(g["frame_color"]) for g in groups]
         return depths, colors
 
@@ -125,6 +131,9 @@ class KinectDataset:
         return depths, colors
         """
         groups = self.batch_load_(timestamps=timestamps)
-        depths = (np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16) for g in groups)
+        depths = (
+            np.asarray(g["frame_depth"] * self.depth_scale, dtype=np.uint16)
+            for g in groups
+        )
         colors = (np.asarray(g["frame_color"]) for g in groups)
         return depths, colors
