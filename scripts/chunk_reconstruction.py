@@ -181,7 +181,7 @@ def construction(chunk: Chunk):
 
 pcds = []
 for c in chunks:
-    c.enhance()
+    c.enhance_parallel()
     c.optimize()
     points = construction(c)
     pcds.append(points)
