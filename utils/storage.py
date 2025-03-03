@@ -310,13 +310,14 @@ class CacheSE(Storage):
     不负责数据存在性判断或任何稳定性问题，调用程序本身负责
     """
 
-    def __init__(self, path: str, mode="w-"):
+    def __init__(self, path: str, mode="w-", compress: bool = False):
         """
         mode: 'w-' 表示创建新文件，如果文件已存在则报错，适合单进程使用
         """
         h5py.get_config().track_order = True  # 保证读取顺序按照插入顺序
         self.mode = mode
         self.path = path
+        self.compress = compress
         self.hdf5 = h5py.File(path, mode)
 
     def __setitem__(self, key: str, value: np.ndarray):
@@ -324,7 +325,13 @@ class CacheSE(Storage):
         if key in self.hdf5:
             logger.warning(f"Overwriting existing dataset: {key}.")
             del self.hdf5[key]
-        self.hdf5.create_dataset(key, data=value)
+
+        kwargs = {"data": value}
+        if self.compress:
+            kwargs["compression"] = "gzip"
+            kwargs["compression_opts"] = 9
+
+        self.hdf5.create_dataset(key, **kwargs)
 
     def __getitem__(self, key: str) -> np.ndarray:
         return self.hdf5[key][:]  # type: ignore
