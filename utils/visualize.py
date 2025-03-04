@@ -139,6 +139,7 @@ def show_pcd_with_keypoints(
     scalars: Optional[np.ndarray] = None,
     pcd_point_size=1.0,
     kps_point_size=5.0,
+    export: Optional[str] = None,
 ):
     """
     pcd: N, 3
@@ -151,7 +152,11 @@ def show_pcd_with_keypoints(
     else:
         p.add_points(pcd, color=[0, 0, 255], point_size=pcd_point_size)
     p.add_points(kps, color=[255, 0, 0], point_size=kps_point_size)
-    p.show()
+
+    if export and export.endswith(".html"):
+        p.export_html(export)
+    else:
+        p.show()
 
 
 def show_transformation(
