@@ -116,6 +116,23 @@ def pick_point(pcd: np.ndarray, point_size=2.0):
     return plotter.picked_point
 
 
+def pick_points_from_mesh(path: str):
+    """
+    从 mesh 中选择点，并输出该点的坐标。(Shift + Left Click)
+    :param mesh: open3d.geometry.TriangleMesh 对象
+    :return: List[numpy.ndarray] 选择的点的坐标
+    """
+    mesh = o3d.io.read_triangle_mesh(path)
+    vis = o3d.visualization.VisualizerWithVertexSelection()
+    vis.create_window()
+    vis.add_geometry(mesh)
+    vis.run()
+
+    # 获取用户选择的点的索引
+    picked_points = [p.coord for p in vis.get_picked_points()]
+    return picked_points
+
+
 def show_pcd_with_keypoints(
     pcd: np.ndarray,
     kps: np.ndarray,
