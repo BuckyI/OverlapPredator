@@ -113,7 +113,7 @@ chunk_edges = []
 chunk = None
 k = k / 2  # 因为跳帧了
 state = ChunkState.begin
-for i in range(0, 3000, 2):
+for i in range(0, len(dataset), 2):
     # init
     if state == ChunkState.begin:
         chunk = Chunk(registration, id=len(chunks))
@@ -269,8 +269,9 @@ from utils.reconstruction import save_pcd, simple_merge_points
 poses = cache.load("run/chunk_poses_optimized.joblib")
 
 global_scene = simple_merge_points(pcds, poses)
-show_pcd(global_scene)
+# show_pcd(global_scene)
 save_pcd(global_scene, path="run/scene_simpmerged.ply")
+cache.dump(global_scene, "run/scene_simpmerged_array.joblib")
 
 # %% TSDF: get frame poses
 chunk_poses = cache.load("run/chunk_poses_optimized.joblib")
@@ -292,6 +293,9 @@ frame_poses = []
 for fid, poses in frame_id_pose.items():
     frame_ids.append(fid)
     frame_poses.append(average_poses(poses))
+
+final_frame_poses = {fid: p for fid, p in zip(frame_ids, frame_poses)}
+cache.dump(final_frame_poses, "run/frame_poses.joblib")
 
 # %% TSDF: integrate frames
 timestamps = [dataset.timestamps[fid] for fid in frame_ids]
