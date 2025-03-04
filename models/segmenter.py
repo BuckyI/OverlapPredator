@@ -14,11 +14,14 @@ from ultralytics import YOLO
 from utils.convert import compute_vertex
 
 
-def extract_target_points(depth: np.ndarray, mask: np.ndarray, K: np.ndarray):
+def extract_target_points(
+    depth: np.ndarray, mask: np.ndarray, K: np.ndarray, *, clean: bool = False
+):
     """
     depth: 深度图
     mask: 预测的目标的 mask
     K: 相机内参
+    clean: bool, 是否去除统计外点, 注意这个选项可能需要根据场景调整参数，所以默认不使用
     return: 预处理过后的目标点云，经过 0.01 分辨率降采样和去除统计外点。
     由于 YOLO 处理图像会修改尺寸，mask 可以和 depth 的 shape 不一样
     """
@@ -34,8 +37,9 @@ def extract_target_points(depth: np.ndarray, mask: np.ndarray, K: np.ndarray):
     pcd.points = o3d.utility.Vector3dVector(points.reshape(-1, 3))
     # pcd = pcd.remove_duplicated_points()
     pcd = pcd.voxel_down_sample(voxel_size=0.01)
-    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.2)
-    pcd = pcd.select_by_index(ind)
+    if clean:
+        cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.2)
+        pcd = pcd.select_by_index(ind)
     return np.asarray(pcd.points)
 
 
