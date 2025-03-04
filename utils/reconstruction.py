@@ -151,11 +151,17 @@ class Chunk:
 
     def __getstate__(self):
         state = self.__dict__.copy()
+        del state["register"]
         return state
 
     def __setstate__(self, state):
         for k, v in state.items():
             setattr(self, k, v)
+
+        def empty_func(*args, **kwargs):
+            raise NotImplementedError("not available for a unpickled chunk")
+
+        self.register = empty_func
 
 
 def construct_pose_graph(edges: List[Edge]):
