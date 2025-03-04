@@ -12,7 +12,7 @@ from utils.storage import CacheSE
 from utils.visualize import get_masked_image
 
 video_path = "run/input.mp4"
-data_path = "run/data_compress.hdf5"
+data_path = "run/kinect_pig_mask.hdf5"
 output_path = "run/output.mp4"
 
 # %% 加载视频
@@ -40,16 +40,17 @@ if not out.isOpened():
     raise SystemExit
 
 # %% 验证帧数一致性
-# if total_frames != total_masks:
-#     print(f"Error: 视频帧数({total_frames})与mask数量({total_masks})不一致")
-#     cap.release()
-#     cv2.destroyAllWindows()
-#     masks.close()
-#     raise SystemExit
+if total_frames != total_masks:
+    print(f"Error: 视频帧数({total_frames})与mask数量({total_masks})不一致")
+    cap.release()
+    cv2.destroyAllWindows()
+    masks.close()
+    raise SystemExit
 
+max_id = total_frames
 # 由于还没有处理完毕，所以只处理前一部分
-max_id = min(total_frames, total_masks)
-print("max_id:", max_id)
+# max_id = min(total_frames, total_masks)
+# print("max_id:", max_id)
 
 # %% 逐帧处理并导出视频
 from tqdm import tqdm
