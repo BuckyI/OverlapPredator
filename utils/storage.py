@@ -337,8 +337,9 @@ class CacheSE(Storage):
         return self.hdf5[key][:]  # type: ignore
 
     @staticmethod
-    def dump(data, path: str):
-        return joblib.dump(data, path)
+    def dump(data, path: str, compress: bool = False):
+        compress_ = 9 if compress else 0
+        return joblib.dump(data, path, compress=compress_)
 
     @staticmethod
     def load(path: str):
