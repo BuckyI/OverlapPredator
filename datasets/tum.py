@@ -90,7 +90,9 @@ class TUMDataset:
             depth_path = Path(self.path, info[3]).as_posix()
 
             T = np.eye(4)
-            T[:3, :3] = R.from_quat([float(v) for v in info[8:12]]).as_matrix()  # qx qy qz qw
+            T[:3, :3] = R.from_quat(
+                [float(v) for v in info[8:12]]
+            ).as_matrix()  # qx qy qz qw
             T[:3, 3] = np.array([float(v) for v in info[5:8]])  # tx ty tz
 
             frame = Frame(
@@ -106,6 +108,9 @@ class TUMDataset:
 
         self.timestamp2frame = {f.timestamp: f for f in self.frames}
         self.timestamps = [f.timestamp for f in self.frames]
+
+    def __len__(self):
+        return len(self.frames)
 
 
 def load_point_cloud(frame: Frame):
