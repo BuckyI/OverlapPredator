@@ -149,19 +149,14 @@ class Chunk:
             self.frame_poses = poses
         return poses
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["register"]
-        return state
-
-    def __setstate__(self, state):
-        for k, v in state.items():
-            setattr(self, k, v)
-
-        def empty_func(*args, **kwargs):
-            raise NotImplementedError("not available for a unpickled chunk")
-
-        self.register = empty_func
+    def gather_data(self):
+        "gather data from chunk"
+        return {
+            "chunk_id": self.id,
+            "frame_ids": self.frame_ids,
+            "frame_poses": self.frame_poses,
+            "edges": self.edges,
+        }
 
 
 def construct_pose_graph(edges: List[Edge]):
