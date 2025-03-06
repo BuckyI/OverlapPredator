@@ -305,6 +305,7 @@ for tid in range(len(chunks)):
         sp, tp = pcds[sid], pcds[tid]
         sd = load_chunk_data(sid, sp)
         td = load_chunk_data(tid, tp)
+        assert sd is not None and td is not None
         _, inputs = model.pair_decode(sd, td)
         reg_result = model.registration_(inputs, debug=True)
         flag = checker.check_model_registration(reg_result, 0.9)
