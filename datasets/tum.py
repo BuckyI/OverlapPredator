@@ -31,6 +31,7 @@ class Frame:
     def o3d_point_cloud(self) -> o3d.geometry.PointCloud:
         depth_image = o3d.io.read_image(self.depth_path)
         intrinsic = o3d.camera.PinholeCameraIntrinsic(self.width, self.height, self.K)
+        # TUM depth scale 5000.0
         pcd = o3d.geometry.PointCloud.create_from_depth_image(
             depth_image, intrinsic, depth_scale=5000.0, depth_trunc=5
         ).voxel_down_sample(voxel_size=0.01)
@@ -45,7 +46,9 @@ class Frame:
     def pcd_array_without_plane(self) -> np.ndarray:
         # TODO 如果图片中没有地面怎么办？
         pcd = self.o3d_point_cloud
-        plane_model, inliers = pcd.segment_plane(distance_threshold=0.05, ransac_n=3, num_iterations=1000)
+        plane_model, inliers = pcd.segment_plane(
+            distance_threshold=0.05, ransac_n=3, num_iterations=1000
+        )
         outlier_cloud = pcd.select_by_index(inliers, invert=True)
         return np.asarray(outlier_cloud.points)
 
@@ -58,7 +61,9 @@ class Frame:
     @cached_property
     def pcd_array_without_plane_005(self) -> np.ndarray:
         "low resolution pcd, unit length 1m"
-        pcd, tree = small_gicp.preprocess_points(self.pcd_array_without_plane, 0.05, num_threads=5)
+        pcd, tree = small_gicp.preprocess_points(
+            self.pcd_array_without_plane, 0.05, num_threads=5
+        )
         return pcd.points()[:, :3]
 
 
@@ -113,14 +118,6 @@ class TUMDataset:
 
     def __len__(self):
         return len(self.frames)
-
-
-def load_point_cloud(frame: Frame):
-    depth_image = o3d.io.read_image(frame.depth_path)
-    intrinsic = o3d.camera.PinholeCameraIntrinsic(frame.width, frame.height, frame.K)
-
-    pcd = o3d.geometry.PointCloud.create_from_depth_image(depth_image, intrinsic, depth_scale=5000.0)  # tum
-    return pcd
 
 
 def visualize_trajectory(dataset: TUMDataset):
