@@ -119,27 +119,37 @@ class Chunk:
                 if flag:
                     self.edges.append(Edge(sid, tid, trans, "skipframe"))
 
-    def _register_skipframe(self, sid: int, tid: int, init_pose: np.ndarray):
-        "如果放到 enhance_parallel 内部会导致无法 pickle"
+    def _register_skipframe(
+        self, sid: int, tid: int, init_pose: np.ndarray, edge_type: str = "skipframe"
+    ):
+        """
+        如果放到 enhance_parallel 内部会导致无法 pickle
+        edge_type: "skipframe" or "odomerty",
+            如果你希望间隔边发挥更重要的作用消除误差，可以试一下 "odomerty"
+        """
         flag, trans = self.register(sid, tid, init_pose)
-        edge_type = "skipframe" if flag else "skipframe-failed"
+        edge_type = edge_type if flag else "failed"
         return Edge(sid, tid, trans, edge_type)
 
-    def enhance_parallel(self):
+    def enhance_parallel(
+        self, skip_every: Iterable[int] = (5, 10, 20, 30, 40, 50, 60), **kwargs
+    ):
         "enhance the chunk by adding keyframe edges"
         multi_work = Parallel(n_jobs=-1, backend="multiprocessing")
         tasks = []
-        for k in [5, 10, 20, 30, 40, 50, 60]:  # TODO: keyframe selection
+        for k in skip_every:  # keyframe selection
             key_frames = self.frame_ids[::k]
             key_poses = self.frame_poses[::k]
             for i in range(1, len(key_frames)):
                 sid, tid = key_frames[i], key_frames[i - 1]
                 init_pose = np.linalg.inv(key_poses[i - 1]) @ key_poses[i]  # sid -> tid
-                tasks.append(delayed(self._register_skipframe)(sid, tid, init_pose))
+                tasks.append(
+                    delayed(self._register_skipframe)(sid, tid, init_pose, **kwargs)
+                )
         edges = multi_work(tasks)
         for e in edges:
             assert isinstance(e, Edge)  # for type hint
-            if e.edge_type != "skipframe-failed":
+            if e.edge_type != "failed":
                 self.edges.append(e)
 
     def transform(self, trans: np.ndarray, inplace: bool = True):
