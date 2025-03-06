@@ -17,6 +17,7 @@ import open3d as o3d
 import open3d.core as o3c
 from joblib import Parallel, delayed
 from loguru import logger
+from tqdm import tqdm
 
 from datasets.tum import Frame
 from models.checker import Checker
@@ -343,26 +344,29 @@ def tsdf2(
         block_count=5000,
         device=device,
     )
-    for depth, color, pose in zip(depths, colors, poses):
+
+    for i, (depth, color, pose) in tqdm(enumerate(zip(depths, colors, poses))):
         depth = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(depth))
         color = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(color))
         intrinsic = o3d.core.Tensor(K, o3d.core.Dtype.Float64)
         extrinsic = o3d.core.Tensor(np.linalg.inv(pose), o3d.core.Dtype.Float64)
 
-        frustum_block_coords = vbg.compute_unique_block_coordinates(
-            depth, intrinsic, extrinsic, depth_scale, depth_max
-        )  # Nx3 tensor
-        vbg.integrate(
-            frustum_block_coords,
-            depth,
-            color,
-            intrinsic,
-            intrinsic,
-            extrinsic,
-            depth_scale=depth_scale,
-            depth_max=depth_max,
-        )
-
+        try:
+            frustum_block_coords = vbg.compute_unique_block_coordinates(
+                depth, intrinsic, extrinsic, depth_scale, depth_max
+            )  # Nx3 tensor
+            vbg.integrate(
+                frustum_block_coords,
+                depth,
+                color,
+                intrinsic,
+                intrinsic,
+                extrinsic,
+                depth_scale=depth_scale,
+                depth_max=depth_max,
+            )
+        except Exception as e:
+            logger.error(f"encounter error: {e}, skip frame {i}")
     return vbg
 
 
