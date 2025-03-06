@@ -81,6 +81,8 @@ class TUMDataset:
 
         associate_file = self.path / "associate_with_groundtruth.txt"
         assert associate_file.is_file(), "require associate_with_groundtruth.txt"
+        self.K = K
+        self.depth_scale = 5000.0
         self.frames: list[Frame] = []
         self.index = associates = open(associate_file, "r").readlines()
         for line in associates:
