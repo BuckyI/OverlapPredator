@@ -40,9 +40,13 @@ def check_registration(
 def train_random_forest(
     X: np.ndarray, y: np.ndarray, test_size: float = 0.2
 ) -> RandomForestClassifier:
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42
-    )
+    if test_size == 0:
+        X_train = X_test = X
+        y_train = y_test = y
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=42
+        )
 
     rf = RandomForestClassifier(n_estimators=200, random_state=42, oob_score=True)
     logger.info("开始训练随机森林分类器")
