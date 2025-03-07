@@ -172,8 +172,7 @@ def show_pr_curve(y_true, probas_pred):
     plt.ylim([0.0, 1.05])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title(f"Precision-Recall Curve")
-    plt.legend()
+    plt.title("Precision-Recall Curve")
     plt.show()
 
 
