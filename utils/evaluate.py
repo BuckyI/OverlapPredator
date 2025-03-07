@@ -6,7 +6,15 @@ import open3d as o3d
 import pandas as pd
 import small_gicp
 import torch
-from sklearn.metrics import auc, precision_recall_curve, roc_curve
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_curve,
+)
 
 from lib.benchmark_utils import to_o3d_pcd
 
@@ -254,3 +262,12 @@ def abosolute_pose_error(poses: List[np.ndarray], poses_gt: List[np.ndarray]):
     T = poses_gt[0] @ np.linalg.inv(poses[0])
     poses = [T @ pose for pose in poses]
     return [pose_difference2(i, j) for i, j in zip(poses_gt, poses)]
+
+
+def binary_classification_metrics(y_true, y_pred):
+    return {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "precision": precision_score(y_true, y_pred),
+        "recall": recall_score(y_true, y_pred),
+        "f1": f1_score(y_true, y_pred),
+    }
