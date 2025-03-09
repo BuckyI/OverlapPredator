@@ -202,7 +202,7 @@ def construct_pose_graph(edges: List[Edge]):
             T_ts = np.linalg.inv(T_st)
         else:
             raise ValueError(
-                f"no odometry edge between {node_ids[i-1]} and {node_ids[i]}"
+                f"no odometry edge between {node_ids[i - 1]} and {node_ids[i]}"
             )
 
         init_poses.append(init_poses[-1] @ T_ts)
