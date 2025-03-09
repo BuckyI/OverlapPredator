@@ -228,7 +228,13 @@ def show_masked_image(color: np.ndarray, mask: np.ndarray, save: Optional[str] =
     plt.show()
 
 
-def show_colored_points(points: np.ndarray, colors: np.ndarray, *, point_size=1.0):
+def show_colored_points(
+    points: np.ndarray,
+    colors: np.ndarray,
+    *,
+    point_size=1.0,
+    export: Optional[str] = None,
+):
     """
     display point cloud with color (RGB-D)
     points: N, 3
@@ -236,7 +242,10 @@ def show_colored_points(points: np.ndarray, colors: np.ndarray, *, point_size=1.
     """
     plotter = create_plotter()
     plotter.add_points(points, scalars=colors, rgb=True, point_size=point_size)
-    plotter.show()
+    if export and export.endswith(".html"):
+        plotter.export_html(export)
+    else:
+        plotter.show()
 
 
 def show_pose_graph(graph, cond: Optional[Callable] = None):
