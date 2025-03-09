@@ -410,7 +410,7 @@ def save_pcd(
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
-    if colors:
+    if colors is not None:
         pcd.colors = o3d.utility.Vector3dVector(colors)
 
     return o3d.io.write_point_cloud(path, pcd, print_progress=True)
