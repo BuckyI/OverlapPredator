@@ -44,7 +44,11 @@ def extract_target_points(
 
 
 def extract_target_points_o3d(
-    depth: np.ndarray, mask: np.ndarray, K: np.ndarray, color: np.ndarray
+    depth: np.ndarray,
+    mask: np.ndarray,
+    K: np.ndarray,
+    color: np.ndarray,
+    original: bool = False,
 ) -> np.ndarray:
     """
     提取目标的彩色点云
@@ -52,6 +56,7 @@ def extract_target_points_o3d(
     mask: 预测的目标的 mask （由于 YOLO 处理图像会修改尺寸，mask 可以和 depth 的 shape 不一样）
     K: 相机内参
     color: 可选的 RGB 图像，用于获得彩色点云，尺寸必须和 depth 图像一致，且已对齐
+    original: 默认进行降采样和统计外点移除，设为 True 时不进行任何额外操作
 
     return: 预处理过后的 Open3D 目标点云，经过 0.01 分辨率降采样和去除统计外点。
     """
@@ -70,10 +75,11 @@ def extract_target_points_o3d(
         assert color.shape[:2] == depth.shape
         pcd.colors = o3d.utility.Vector3dVector(color.reshape(-1, 3) / 255.0)
 
-    # pcd = pcd.remove_duplicated_points()
-    pcd = pcd.voxel_down_sample(voxel_size=0.01)
-    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.2)
-    pcd = pcd.select_by_index(ind)
+    if not original:
+        # pcd = pcd.remove_duplicated_points()
+        pcd = pcd.voxel_down_sample(voxel_size=0.01)
+        cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.2)
+        pcd = pcd.select_by_index(ind)
     return pcd
 
 
