@@ -84,7 +84,6 @@ def extract_target_points_o3d(
 
 
 class Segmenter:
-
     def __init__(self, model_path: str = "weights/pig_segment.pt") -> None:
         self.model = YOLO(model_path)
 
