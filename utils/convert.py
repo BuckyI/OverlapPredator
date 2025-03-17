@@ -1,8 +1,10 @@
 from typing import List, Union
 
+import cv2
 import numpy as np
 import small_gicp
 import torch
+from loguru import logger
 from scipy.spatial.transform import Rotation as R
 
 
@@ -77,3 +79,34 @@ def compute_vertex(depth: np.ndarray, K: np.ndarray) -> np.ndarray:
         np.stack([(X - cx) / fx, (Y - cy) / fy, np.ones_like(X)], -1) * depth[..., None]
     )  # [H, W, 3]
     return vertex
+
+
+def resize_image_like(
+    image: np.ndarray, target: np.ndarray, interpolation: int = cv2.INTER_NEAREST
+) -> np.ndarray:
+    """
+    将 mask resize 到与 target 相同大小
+    image: H1xW1 深度图或二进制掩膜
+    target: H2xW2 或 H2xW2xC 要对齐大小的目标
+    interpolation: cv2 interpolation method
+        cv2.INTER_NEAREST 0：最近邻插值，适用于二进制掩膜
+        cv2.INTER_LINEAR 1：双线性插值，适用于深度图
+        cv2.INTER_CUBIC 2：双三次插值，适用于深度图
+    return: resized image H2xW1
+    """
+    if target.ndim == 2:  # depth
+        h, w = target.shape
+    elif target.ndim == 3:  # color
+        h, w, _ = target.shape
+    else:
+        raise ValueError(f"target shape {target.shape} is unexpected")
+
+    # warning
+    if interpolation != cv2.INTER_NEAREST and np.issubdtype(image.dtype, np.integer):
+        logger.warning(
+            "mask is integer type, but not using INTER_NEAREST,"
+            "hope you know what you are doing"
+        )
+
+    resized = cv2.resize(image, (w, h), interpolation=interpolation)
+    return resized
