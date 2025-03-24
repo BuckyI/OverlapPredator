@@ -2,7 +2,7 @@
 用于实例分割猪目标的 YOLO 模型
 """
 
-from typing import List
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -47,9 +47,9 @@ def extract_target_points_o3d(
     depth: np.ndarray,
     mask: np.ndarray,
     K: np.ndarray,
-    color: np.ndarray,
+    color: Optional[np.ndarray] = None,
     original: bool = False,
-) -> np.ndarray:
+):
     """
     提取目标的彩色点云
     depth: 深度图
