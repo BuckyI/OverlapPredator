@@ -43,23 +43,25 @@ def show_pcd(
     pcd: np.ndarray,
     *,
     title="PCD",
-    point_size=1.0,
     value=None,
     export: Optional[str] = None,
+    **kwargs,
 ):
-    # pdata = pyvista.PolyData(pcd)
-    # if value is not None:
-    #     pdata["value"] = value
-    #     pdata.plot(point_size=point_size, scalars="value", cmap="coolwarm")
-    # else:
-    #     pdata.plot(color="red", point_size=point_size)  # pdata.plot(cmap="Reds")
+    """
+    Optional kwargs:
+        point_size: point size, 1.0 by default
+        cmap: color map for value, "coolwarm" by default
+    """
     p = create_plotter()
-    pdata = pyvista.PolyData(pcd)
+
+    kwargs["point_size"] = kwargs.get("point_size", 1.0)
     if value is not None:
-        pdata["value"] = value
-        p.add_points(pdata, scalars="value", cmap="coolwarm", point_size=point_size)
+        kwargs["cmap"] = kwargs.get("cmap", "coolwarm")
+        value = np.asarray(value, dtype=np.float32)  # color map error if integer
+        p.add_points(pcd, scalars=value, **kwargs)
     else:
-        p.add_points(pcd, color="red", point_size=point_size)
+        kwargs["color"] = kwargs.get("color", "red")
+        p.add_points(pcd, **kwargs)
     p.add_title(title, font_size=14)
 
     if export and export.endswith(".html"):
