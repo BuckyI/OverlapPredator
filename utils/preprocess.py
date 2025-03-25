@@ -78,7 +78,7 @@ def refine_mask(
     points = compute_vertex(masked_depth, K).reshape(-1, 3)  # width * height, 3
 
     # 稀疏点聚类
-    sparse_points = downsample(points, 0.02)  # 降采样
+    sparse_points = downsample(points, eps / 2)  # 降采样
     sparse_labels = DBSCAN(eps=eps, min_samples=min_points).fit_predict(
         sparse_points
     )  # 聚类
