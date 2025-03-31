@@ -25,7 +25,7 @@ DATA_FIELDS = ["points", "neighbors", "pools", "upsamples", "stack_lengths", "fe
 
 def to_tensor(data: DATA_NP, device: Union[str, torch.device] = "cpu") -> DATA_TENSOR:
     """类型转换：获得 tensor，保证在合适的设备和为合适的数据类型"""
-    assert all(field in data for field in DATA_FIELDS), f"data validation failed"
+    assert all(field in data for field in DATA_FIELDS), "data validation failed"
 
     def change_dtype(data, dtype=torch.float32):
         "turn (list of) numpy to tensor on specific device"
@@ -63,7 +63,9 @@ def to_numpy(data: DATA_TENSOR) -> DATA_NP:
     return result
 
 
-def merge_data(source: DATA_NP, target: DATA_NP, device: Union[str, torch.device] = "cuda:0") -> DATA_TENSOR:
+def merge_data(
+    source: DATA_NP, target: DATA_NP, device: Union[str, torch.device] = "cuda:0"
+) -> DATA_TENSOR:
     """用于从本地取出 source 和 target 数据后，合并为模型推理需要的格式和数据类型"""
     # 避免修改原始数据（比如传入同一个点云的数据进行合成，会因内存共享出错）
     s1, s2 = source.copy(), target.copy()
@@ -73,7 +75,9 @@ def merge_data(source: DATA_NP, target: DATA_NP, device: Union[str, torch.device
     offsets = np.array(s1["lengths"])
     s2["neighbors"] = [i + j for i, j in zip(s2["neighbors"], s1["lengths"])]
     s2["pools"] = [i + j for i, j in zip(s2["pools"], s1["lengths"])]
-    s2["upsamples"] = [i + j for i, j in zip(s2["upsamples"], np.roll(s1["lengths"], -1))]
+    s2["upsamples"] = [
+        i + j for i, j in zip(s2["upsamples"], np.roll(s1["lengths"], -1))
+    ]
 
     def concatenate(l1, l2):
         """
@@ -83,9 +87,19 @@ def merge_data(source: DATA_NP, target: DATA_NP, device: Union[str, torch.device
         for i, j in zip(l1, l2):
             # 有时候会出现 axis=1 维度不一致的问题，起因是 batch_neighbors_kpconv 获得的矩阵列数无法保证都为最大邻域数
             if i.shape[1] < j.shape[1]:  # pad i
-                i = np.pad(i, ((0, 0), (0, j.shape[1] - i.shape[1])), mode="constant", constant_values=np.inf)
+                i = np.pad(
+                    i,
+                    ((0, 0), (0, j.shape[1] - i.shape[1])),
+                    mode="constant",
+                    constant_values=np.inf,
+                )
             elif j.shape[1] < i.shape[1]:  # pad j
-                j = np.pad(j, ((0, 0), (0, i.shape[1] - j.shape[1])), mode="constant", constant_values=np.inf)
+                j = np.pad(
+                    j,
+                    ((0, 0), (0, i.shape[1] - j.shape[1])),
+                    mode="constant",
+                    constant_values=np.inf,
+                )
             result.append(np.concatenate([i, j], axis=0))
         return result
 
@@ -142,7 +156,6 @@ def split_data(array, length: int, func: Optional[Callable] = None):
 
 @dataclass
 class Model:
-
     # settings from `configs/test/indoor.yaml`, removed unused fields
     first_subsampling_dl = 0.025
     conv_radius = 2.5
@@ -175,7 +188,9 @@ class Model:
 
     def __post_init__(self):
         assert Path(self.model_path).is_file(), f"{self.model_path} does not exists"
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
         self.model = torch.jit.load(self.model_path).to(self.device)
         logger.trace(f"model loaded from {self.model_path} to {self.device}")
 
@@ -198,7 +213,9 @@ class Model:
         input_neighbors: List[torch.Tensor] = []  # 第 i 层查询 pcd 邻居的索引
         # (Encoder)第 i 层对 pcd 进行 pooling / subsampling / 降采样的索引 (只有为 pool/strided 层才有效)
         input_pools: List[torch.Tensor] = []
-        input_upsamples: List[torch.Tensor] = []  # (Decoder)第 i 层对 pcd 进行 upsampling / 上采样的索引
+        input_upsamples: List[
+            torch.Tensor
+        ] = []  # (Decoder)第 i 层对 pcd 进行 upsampling / 上采样的索引
         input_batches_len: List[torch.Tensor] = []
 
         for block_i, block in enumerate(self.architecture):
@@ -209,7 +226,10 @@ class Model:
             # Get all blocks of the layer
             if not ("pool" in block or "strided" in block):
                 layer_blocks += [block]
-                if block_i < len(self.architecture) - 1 and not ("upsample" in self.architecture[block_i + 1]):
+                if (
+                    block_i < len(self.architecture) - 1
+                    and "upsample" not in self.architecture[block_i + 1]
+                ):
                     continue
 
             # Convolution neighbors indices
@@ -240,13 +260,14 @@ class Model:
 
             # If end of layer is a pooling operation
             if "pool" in block or "strided" in block:
-
                 # New subsampling length
                 dl = 2 * r_normal / self.conv_radius
 
                 # Subsampled points
                 # NOTE: 对 batched_points 进行降采样, 获得 pool_p 点, pool_b 长度
-                pool_p, pool_b = batch_grid_subsampling_kpconv(points, lengths, sampleDl=dl)
+                pool_p, pool_b = batch_grid_subsampling_kpconv(
+                    points, lengths, sampleDl=dl
+                )
 
                 # Radius of pooled neighbors
                 if "deformable" in block:
@@ -256,11 +277,15 @@ class Model:
 
                 # Subsample indices
                 # NOTE: 计算了将 batched_points 降采样到 pool_p 对应的 neighbors index
-                pool_i = batch_neighbors_kpconv(pool_p, points, pool_b, lengths, r, neighborhood_limits[layer])
+                pool_i = batch_neighbors_kpconv(
+                    pool_p, points, pool_b, lengths, r, neighborhood_limits[layer]
+                )
 
                 # Upsample indices (with the radius of the next layer to keep wanted density)
                 # NOTE: 计算了将 pool_p 上采样恢复为 batched_points 对应的 neighbors index
-                up_i = batch_neighbors_kpconv(points, pool_p, lengths, pool_b, 2 * r, neighborhood_limits[layer])
+                up_i = batch_neighbors_kpconv(
+                    points, pool_p, lengths, pool_b, 2 * r, neighborhood_limits[layer]
+                )
 
             else:
                 # No pooling in the end of this layer, no pooling indices required
@@ -431,7 +456,9 @@ class Model:
             # NOTE: 论文中采样数为 1000 时效果最好
             max_points = min(max_points, pcd.size(0))
             # assert max_points > 0
-            sample_id: torch.Tensor = torch.multinomial(scores, max_points, replacement=False)
+            sample_id: torch.Tensor = torch.multinomial(
+                scores, max_points, replacement=False
+            )
             sampled_pcd = pcd[sample_id]
             sampled_feats = feats[sample_id]
             sampled_scores = scores[sample_id]
@@ -445,8 +472,12 @@ class Model:
         src_scores = src_overlap * src_saliency  # source length
         tgt_scores = tgt_overlap * tgt_saliency  # target length
 
-        src_idx, src_pcd_down, src_feats_down, src_score_down = _downsample_improved(src_pcd, src_feats, src_scores)
-        tgt_idx, tgt_pcd_down, tgt_feats_down, tgt_score_down = _downsample_improved(tgt_pcd, tgt_feats, tgt_scores)
+        src_idx, src_pcd_down, src_feats_down, src_score_down = _downsample_improved(
+            src_pcd, src_feats, src_scores
+        )
+        tgt_idx, tgt_pcd_down, tgt_feats_down, tgt_score_down = _downsample_improved(
+            tgt_pcd, tgt_feats, tgt_scores
+        )
 
         # feature based ransac registration
         # NOTE: registration_ransac_based_on_feature_matching 本身就带 mutual 参数, 可能这个函数写的时候还不带, 所以自己实现了一个 mutual
