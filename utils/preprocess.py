@@ -50,7 +50,7 @@ def refine_mask(
     mask: np.ndarray,
     depth: np.ndarray,
     K: np.ndarray,
-    eps=0.02,
+    eps=0.05,
     min_points=10,
     percentage=0.9,
 ):
@@ -61,7 +61,7 @@ def refine_mask(
         mask (np.ndarray): 初始二值掩码（0/1），形状为(H, W)
         depth (np.ndarray): 深度图，形状为(H, W)
         K (np.ndarray): 相机内参矩阵，形状为(3, 3)
-        eps (float, optional): DBSCAN聚类邻域半径（米），默认0.02
+        eps (float, optional): DBSCAN聚类邻域半径（米），默认0.05
         min_points (int, optional): DBSCAN最小样本数，默认10
         percentage (float, optional): 保留点云的比例阈值，默认0.9，即假设噪声点不超过 10%
 
