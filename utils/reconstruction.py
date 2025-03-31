@@ -224,12 +224,15 @@ def construct_pose_graph(edges: List[Edge]):
     return pose_graph, node_ids
 
 
-def optimize_pose_graph(pose_graph, verbose: bool = False):
+def optimize_pose_graph(pose_graph, verbose: bool = False, thr=0.25):
+    """
+    thr: edge_prune_threshold, default 0.25
+    """
     method = o3d.pipelines.registration.GlobalOptimizationLevenbergMarquardt()
     criteria = o3d.pipelines.registration.GlobalOptimizationConvergenceCriteria()
     option = o3d.pipelines.registration.GlobalOptimizationOption(
         # max_correspondence_distance=0.07,
-        edge_prune_threshold=0.25,
+        edge_prune_threshold=thr,
         # preference_loop_closure=0.1,
         reference_node=0,
     )
