@@ -50,6 +50,7 @@ class Chunk:
         self.frame_ids: List = []
         self.frame_poses: List[np.ndarray] = []  # frame2world
         self.edges: List[Edge] = []
+        self.meta = {}  # chunk meta info
         self.register = reg_func
 
     def append_overlap(self, other_chunk: "Chunk", ratio: float = 0.3):
