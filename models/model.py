@@ -370,15 +370,23 @@ class Model:
             "upsamples",
             "features",
         ]
-        assert all([f in source for f in required_fields]), f"invalid input {required_fields}"
-        assert all([f in target for f in required_fields]), f"invalid input {required_fields}"
+        try:
+            assert all([f in source for f in required_fields]), (
+                f"invalid input {required_fields}"
+            )
+            assert all([f in target for f in required_fields]), (
+                f"invalid input {required_fields}"
+            )
 
-        data = merge_data(source, target)
-        feats, scores_overlap, scores_saliency = self.model.decode(data)
-        data["final_feature"] = feats
-        data["scores_overlap"] = scores_overlap
-        data["scores_saliency"] = scores_saliency
-        return True, data
+            data = merge_data(source, target)
+            feats, scores_overlap, scores_saliency = self.model.decode(data)
+            data["final_feature"] = feats
+            data["scores_overlap"] = scores_overlap
+            data["scores_saliency"] = scores_saliency
+            return True, data
+        except Exception as e:
+            logger.error(f"pair_decode error: {e}")
+            return False, {}
 
     @torch.inference_mode()
     def encode_decode(self, source: np.ndarray, target: np.ndarray) -> DATA_TENSOR:
