@@ -339,7 +339,8 @@ class CacheSE(Storage):
     @staticmethod
     def dump(data, path: str, compress: bool = False):
         compress_ = 9 if compress else 0
-        return joblib.dump(data, path, compress=compress_)
+        result = joblib.dump(data, path, compress=compress_)
+        logger.info(f"save to: {result}")
 
     @staticmethod
     def load(path: str):
