@@ -138,3 +138,26 @@ class Checker:
         feat = np.array([fitness, cd, cdf]).reshape(1, 3)
         result = self.model.predict(feat)[0]
         return result
+
+    def check_model_registration_debug(self, data: dict):
+        source = data["source"]
+        target = data["target"]
+        source_feat = data["source_feats"]
+        target_feat = data["target_feats"]
+        trans = data["T"]
+
+        eval_result = evaluate_registration(source, target, trans, resolution=0.02)
+        fitness = eval_result["fitness"]
+        cd = chamfer_distance(source, target, trans)
+        cdf = chamfer_distance_feat(source, target, source_feat, target_feat, trans)
+
+        feat = np.array([fitness, cd, cdf]).reshape(1, 3)
+        result = self.model.predict(feat)[0]
+
+        class Result(NamedTuple):
+            fitness: float
+            cd: float
+            cdf: float
+            flag: bool  # True if the registration is valid
+
+        return Result(fitness, cd, cdf, result)
