@@ -129,6 +129,8 @@ class Chunk:
         "enhance the chunk by adding keyframe edges"
         assert self.register is not None, "register function not set"
 
+        existed_edges = set([(e.source_id, e.target_id) for e in self.edges])
+
         multi_work = Parallel(n_jobs=-1, backend="multiprocessing")
         tasks = []
         for k in skip_every:  # keyframe selection
@@ -136,6 +138,9 @@ class Chunk:
             key_poses = self.frame_poses[::k]
             for i in range(1, len(key_frames)):
                 sid, tid = key_frames[i], key_frames[i - 1]
+                if (sid, tid) in existed_edges:
+                    continue  # prevent duplicated registration
+
                 init_pose = np.linalg.inv(key_poses[i - 1]) @ key_poses[i]  # sid -> tid
                 tasks.append(
                     delayed(self._register_skipframe)(sid, tid, init_pose, **kwargs)
