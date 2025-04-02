@@ -310,6 +310,48 @@ def optimize_chunk(chunk: Chunk):
     logger.info("completed pose graph optimization")
 
 
+def optimize_chunks(chunks: List[Chunk], chunk_edges: List[Edge]):
+    """
+    use pose graph to optimize chunk poses
+    chunks: list[Chunk] 参与优化的 chunks
+    chunk_edges: list[Edge] 包含 chunks 之间的边（可以包括不需要的其他边，会自动筛选）
+
+    return:
+        poses: list[np.ndarray] 优化后的 chunk poses
+        edge_confidence: dict[(sid, tid)] -> confidence 可用于查询对于特定边的置信度（如果不存在，则说明被剔除）
+    """
+    pose_graph = o3d.pipelines.registration.PoseGraph()
+    # map from chunk id to node id 如果因为删除 chunk 导致 id 不连续时有用
+    chunk2node = dict()
+    for i in range(len(chunks)):
+        chunk2node[chunks[i].meta["id"]] = i  # len(pose_graph.nodes)
+        _chunk_pose = chunks[i].meta["pose"]
+        pose_graph.nodes.append(o3d.pipelines.registration.PoseGraphNode(_chunk_pose))
+    node2chunk = {v: k for k, v in chunk2node.items()}
+
+    for e in chunk_edges:
+        if e.source_id not in chunk2node or e.target_id not in chunk2node:
+            continue  # 过滤掉无关的边
+
+        edge = o3d.pipelines.registration.PoseGraphEdge(
+            chunk2node[e.source_id],
+            chunk2node[e.target_id],
+            e.T_ts,
+            uncertain=(e.edge_type != "odomerty"),
+        )
+        pose_graph.edges.append(edge)
+
+    pose_graph = optimize_pose_graph(pose_graph, verbose=True, thr=0.25)
+
+    poses = [n.pose for n in pose_graph.nodes]
+    edge_confidence = {
+        (node2chunk[e.source_node_id], node2chunk[e.target_node_id]): e.confidence
+        for e in pose_graph.edges
+    }  # (sid, tid) -> confidence
+
+    return poses, edge_confidence
+
+
 def recon_merge_points(
     chunks: List[Chunk], pose_label: str = "pose_optimized", path="run/merge.ply"
 ):
