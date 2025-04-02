@@ -47,6 +47,57 @@ def pose_difference2(t1: np.ndarray, t2: np.ndarray):
     return np.sqrt(trans**2 + 4 * rot**2)
 
 
+def absolute_trajectory_error(
+    gt: List[np.ndarray],
+    pred: List[np.ndarray],
+    *,
+    align: int = 0,
+):
+    """
+    gt: ground truth trajectory
+    pred: predicted trajectory
+    align: align gt and pred, default 0
+        0: align first frame
+        1: use umeyama_alignment
+    """
+
+    assert len(gt) == len(pred), "not the same length"
+
+    if align == 0:
+        trans = gt[0] @ np.linalg.inv(pred[0])
+    elif align == 1:
+        # umeyama_alignment
+        X = np.array([i[:3, 3] for i in pred])
+        Y = np.array([i[:3, 3] for i in gt])
+        centroid_X = np.mean(X, axis=0)
+        centroid_Y = np.mean(Y, axis=0)
+        X_centered = X - centroid_X
+        Y_centered = Y - centroid_Y
+        H = X_centered.T @ Y_centered
+        U, S, Vt = np.linalg.svd(H)
+        V = Vt.T  # Vt是V的转置，因此 V = Vt.T
+        R = V @ U.T
+        # 确保旋转矩阵是正交且行列式为+1（防止反射）
+        if np.linalg.det(R) < 0:
+            V[:, -1] *= -1
+            R = V @ U.T
+        # 计算缩放因子s
+        # numerator = np.trace(Y_centered.T @ (X_centered @ R.T))
+        # denominator = np.trace(X_centered.T @ X_centered)
+        # s = numerator / denominator
+        s = 1.0  # 不缩放
+
+        trans = np.eye(4)
+        trans[:3, :3] = s * R
+        trans[:3, 3] = centroid_Y - s * R @ centroid_X
+    else:
+        raise ValueError()
+
+    aligned_pred = [trans @ pose for pose in pred]
+    error = [pose_difference(gt[i], aligned_pred[i]) for i in range(len(gt))]
+    return error
+
+
 def chamfer_distance(a: np.ndarray, b: np.ndarray, trans: np.ndarray = np.eye(4)):
     """
     计算两个点云之间的 chamfer 距离
