@@ -190,6 +190,70 @@ def tsdf2(
     return vbg
 
 
+def tsdf3(
+    depths: Iterable[np.ndarray],
+    colors: Iterable[np.ndarray],
+    poses: Iterable[np.ndarray],
+    K: np.ndarray,
+    depth_scale: float,
+    depth_max: float = 5.0,
+    vol_size: float = 3.0 / 512,
+    vbg: Optional[o3d.t.geometry.VoxelBlockGrid] = None,
+) -> o3d.t.geometry.VoxelBlockGrid:
+    """
+    continuous tsdf from array
+    PLEASE CHECK DATATYPE:
+        depth: uint16
+        color: uint8
+        K: float64
+        depth_scale: float
+
+    return o3d.t.geometry.VoxelBlockGrid
+    """
+    # 类型检查
+    depth_scale = float(depth_scale)
+    depth_max = float(depth_max)
+    vol_size = float(vol_size)
+
+    device = o3d.core.Device("CPU:0")
+    if vbg is None:
+        vbg = o3d.t.geometry.VoxelBlockGrid(
+            attr_names=("tsdf", "weight", "color"),
+            attr_dtypes=(o3c.float32, o3c.float32, o3c.float32),
+            attr_channels=((1), (1), (3)),
+            voxel_size=vol_size,
+            block_resolution=16,
+            block_count=5000,
+            device=device,
+        )
+
+    assert isinstance(vbg, o3d.t.geometry.VoxelBlockGrid)
+
+    for i, (depth, color, pose) in tqdm(enumerate(zip(depths, colors, poses))):
+        depth = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(depth))
+        color = o3d.t.geometry.Image(o3d.core.Tensor.from_numpy(color))
+        intrinsic = o3d.core.Tensor(K, o3d.core.Dtype.Float64)
+        extrinsic = o3d.core.Tensor(np.linalg.inv(pose), o3d.core.Dtype.Float64)
+
+        try:
+            frustum_block_coords = vbg.compute_unique_block_coordinates(  # type: ignore
+                depth, intrinsic, extrinsic, depth_scale, depth_max
+            )  # Nx3 tensor
+            vbg.integrate(  # type: ignore
+                frustum_block_coords,
+                depth,
+                color,
+                intrinsic,
+                intrinsic,
+                extrinsic,
+                depth_scale=depth_scale,
+                depth_max=depth_max,
+            )
+        except Exception as e:
+            logger.error(f"encounter error: {e}, skip frame {i}")
+    return vbg
+
+
 def save_scene(
     vbg: o3d.t.geometry.VoxelBlockGrid, path: str = "scene.ply", type: str = "pcd"
 ):
