@@ -519,6 +519,10 @@ class Model:
                 target_raw=tgt_pcd,  # to numpy
                 source_raw_scores=src_scores,  # to numpy
                 target_raw_scores=tgt_scores,  # to numpy
+                source_raw_feats=src_feats,  # to numpy
+                target_raw_feats=tgt_feats,  # to numpy
+                source_raw_overlap=src_overlap,  # to numpy
+                target_raw_overlap=tgt_overlap,  # to numpy
                 source=src_pcd_down,
                 target=tgt_pcd_down,
                 source_id=src_idx,
