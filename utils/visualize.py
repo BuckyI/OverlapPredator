@@ -44,10 +44,14 @@ def show_pcd(
     *,
     title="PCD",
     value=None,
+    normals=None,
     export: Optional[str] = None,
     **kwargs,
 ):
     """
+    value: N-dimensional scalar vector
+    normals: Nx3 vector (could be normals)
+
     Optional kwargs:
         point_size: point size, 1.0 by default
         cmap: color map for value, "coolwarm" by default
@@ -62,7 +66,11 @@ def show_pcd(
     else:
         kwargs["color"] = kwargs.get("color", "red")
         p.add_points(pcd, **kwargs)
+
     p.add_title(title, font_size=14)
+
+    if normals is not None:
+        p.add_arrows(pcd, normals, opacity=0.25, color="black", mag=1)
 
     if export and export.endswith(".html"):
         p.export_html(export)
