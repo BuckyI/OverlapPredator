@@ -6,6 +6,7 @@ import open3d as o3d
 import pandas as pd
 import small_gicp
 import torch
+from scipy.spatial.transform import Rotation as R
 from sklearn.metrics import (
     accuracy_score,
     auc,
@@ -322,3 +323,49 @@ def binary_classification_metrics(y_true, y_pred):
         "recall": recall_score(y_true, y_pred),
         "f1": f1_score(y_true, y_pred),
     }
+
+
+def disturb_transform(
+    T: np.ndarray, trans_mag: float, rot_mag: float, n_samples: int = 1
+):
+    """
+    给4x4位姿变换矩阵添加指定幅度的噪声
+
+    Args:
+        T (np.ndarray): 4x4位姿变换矩阵
+        trans_mag (float): 平移噪声的幅度(m)
+        rot_mag (float): 旋转噪声的幅度(degree)
+        n_samples (int, optional): 生成噪声的样本数. Defaults to 1.
+
+    Returns:
+        disturbed_Ts (List[np.ndarray]): 带噪声的位姿变换矩阵列表
+        errors (List[float]): 噪声位姿变换矩阵与原始位姿变换矩阵的差异
+    """
+    # 分解原始位姿矩阵
+    R_original = T[:3, :3]
+    t_original = T[:3, 3]
+
+    # 生成平移噪声
+    t_noises = np.random.uniform(-trans_mag, trans_mag, (n_samples, 3))
+    # 生成旋转噪声
+    # 随机生成旋转轴（单位向量）
+    random_axis = np.random.randn(n_samples, 3)
+    random_axis /= np.linalg.norm(random_axis, axis=1, keepdims=True)
+    # 生成旋转角度
+    angles = np.random.uniform(-rot_mag, rot_mag, n_samples)
+    R_noises = [
+        R.from_rotvec(np.deg2rad(angles[i]) * random_axis[i]).as_matrix()
+        for i in range(n_samples)
+    ]
+
+    # 应用噪声
+    disturbed_Ts = []
+    errors = []
+    for i in range(n_samples):
+        disturbed_T = np.eye(4)
+        disturbed_T[:3, :3] = R_original @ R_noises[i]  # 右乘局部坐标系扰动
+        disturbed_T[:3, 3] = t_original + t_noises[i]
+        error = pose_difference2(T, disturbed_T)
+        disturbed_Ts.append(disturbed_T)
+        errors.append(error)
+    return disturbed_Ts, errors
