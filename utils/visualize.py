@@ -196,6 +196,33 @@ def show_transformation(
         p.show()
 
 
+def show_transformation2(source, target, T, source_value, point_size=3.0, export=None):
+    """
+    用于可视化配准结果，主要检查某一计算数据和配准效果的对比
+    """
+    source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
+    source_trans = (source_homo @ T.transpose())[..., :3]  # N, 3
+
+    p = create_plotter()
+    p.add_points(
+        source_trans,
+        opacity=0.85,
+        point_size=point_size,
+        scalars=source_value,
+        cmap="jet",
+    )
+    p.add_points(
+        target,
+        opacity=0.3,
+        color="black",
+        point_size=point_size,
+    )
+    if export and export.endswith(".html"):
+        p.export_html(export)
+    else:
+        p.show()
+
+
 def show_rgbd_image(depth: np.ndarray, color: np.ndarray, *, colorbar: bool = False):
     "display RGB-D image"
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
