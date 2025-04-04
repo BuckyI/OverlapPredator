@@ -82,11 +82,17 @@ def show_pcds(
     *pcds: List[np.ndarray],
     title="PCDs",
     point_size=1.0,
+    cmap="coolwarm",
     export: Optional[str] = None,
 ):
+    """
+    cmap: "coolwarm" by default, "rainbow", "plasma", "viridis"
+    """
     p = create_plotter()
     # colors = np.random.randint(0, 256, size=(len(pcds), 3))
-    colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+    # colors = [[255, 0, 0], [0, 0, 255], [0, 255, 0]]
+    colors = plt.get_cmap(cmap)(np.linspace(0, 1, len(pcds)))
+
     for pcd, c in zip(pcds, colors):
         p.add_points(pcd, opacity=0.85, color=c, point_size=point_size)
     if export and export.endswith(".html"):
