@@ -35,11 +35,11 @@ class KinectDataset:
         assert Path(cache_path).is_file()
         self.cache = DatasetCache(cache_path, "r")
         self.meta = attrs = self.cache.hdf5.attrs
-        self.dataset_id = attrs["dataset_id"]
-        self.depth_scale = attrs["depth_scale"]
-        self.width = attrs["width"]
-        self.height = attrs["height"]
-        self.K = attrs["K"].astype(np.float64)  # type: ignore
+        self.dataset_id: str = attrs["dataset_id"]  # type: ignore
+        self.depth_scale: float = float(attrs["depth_scale"])  # type: ignore
+        self.width: int = attrs["width"]  # type: ignore
+        self.height: int = attrs["height"]  # type: ignore
+        self.K: np.ndarray = attrs["K"].astype(np.float64)  # type: ignore
 
         hdf5 = self.cache.hdf5.get(self.dataset_id)
         assert isinstance(hdf5, h5py.Group)
