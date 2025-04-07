@@ -58,6 +58,7 @@ def absolute_trajectory_error(
     gt: ground truth trajectory
     pred: predicted trajectory
     align: align gt and pred, default 0
+        -1: do not align
         0: align first frame
         1: use umeyama_alignment
     """
@@ -91,6 +92,8 @@ def absolute_trajectory_error(
         trans = np.eye(4)
         trans[:3, :3] = s * R
         trans[:3, 3] = centroid_Y - s * R @ centroid_X
+    elif align == -1:
+        trans = np.eye(4)
     else:
         raise ValueError()
 
