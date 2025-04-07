@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from configs.settings import params
 from datasets.tum import TUMDataset
-from models.checker import Checker
+from models.checker import Checker, check_registration
 from models.model import Model
 from pipeline.data import Chunk
 from pipeline.evaluate import voting_evaluate
@@ -47,7 +47,6 @@ dataset = TUMDataset(param[0], param[2])
 teddy_cache = CacheSE("data/teddy1_dataset/teddy_target_cache.h5", mode="r")
 
 model = Model()
-checker = Checker("run/rf_reg_cls_teddy.pkl")
 
 # remove old cache
 os.makedirs("run", exist_ok=True)
@@ -89,13 +88,11 @@ def registration(sid: int, tid: int, init_T=np.eye(4)):
         flag: bool, True if valid
         trans: np.ndarray, transformation matrix
     """
-    global checker
-
     sp = load_points(sid)
     tp = load_points(tid)
 
     trans, _ = GICP_registration(sp, tp, init_T)
-    flag = checker.check_registration(sp, tp, trans)
+    flag = check_registration(sp, tp, trans)
     logger.debug(f"REG {sid} -> {tid} valid: {flag}")
     return flag, trans
 
