@@ -5,6 +5,8 @@ import numpy as np
 import open3d as o3d
 import pyvista
 
+from utils.convert import transform
+
 # global settings
 ADJUST_CAMERA: bool = True
 
@@ -15,16 +17,6 @@ def create_plotter():
         plotter.camera_position = "yx"
         plotter.camera.roll -= 90
     return plotter
-
-
-def transform(source: np.ndarray, trans: np.ndarray):
-    """
-    source: pcd Nx3
-    trans: 4x4 transform matrix from source to target
-    return: transformed pcd Nx3
-    """
-    source_homo = np.concatenate((source, np.ones((source.shape[0], 1))), axis=1)
-    return (source_homo @ trans.transpose())[..., :3]  # N, 3
 
 
 def get_pcd_data(pcd: np.ndarray, value=None):
