@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
 import open3d as o3d
@@ -152,6 +152,27 @@ def split_data(array, length: int, func: Optional[Callable] = None):
         return array[:length], array[length:]
     else:
         return func(array[:length]), func(array[length:])
+
+
+class RegistrationResult(TypedDict):
+    T: np.ndarray
+    T0: np.ndarray
+    source_raw: torch.Tensor
+    target_raw: torch.Tensor
+    source_raw_scores: torch.Tensor
+    target_raw_scores: torch.Tensor
+    source_raw_feats: torch.Tensor
+    target_raw_feats: torch.Tensor
+    source_raw_overlap: torch.Tensor
+    target_raw_overlap: torch.Tensor
+    source: np.ndarray
+    target: np.ndarray
+    source_id: np.ndarray
+    target_id: np.ndarray
+    source_feats: np.ndarray
+    target_feats: np.ndarray
+    source_scores: torch.Tensor
+    target_scores: torch.Tensor
 
 
 @dataclass
@@ -440,9 +461,12 @@ class Model:
         """
         data = self.encode_decode(source, target)
         result = self.registration_(data, debug)
-        return result if debug else result["T"]  # type: ignore
+        # return result if debug else result["T"]  # type: ignore
+        return result
 
-    def registration_(self, data: DATA_TENSOR, debug: bool = False) -> DATA_NP:
+    def registration_(
+        self, data: DATA_TENSOR, debug: bool = False
+    ) -> RegistrationResult:
         """根据模型输出结果进行点云配准，
         返回 dict 包括详细中间信息(如果 debug 为 True)和最终结果，方便实验
         """
@@ -512,7 +536,7 @@ class Model:
             T = reg_res.T_target_source
 
         return (
-            dict(
+            RegistrationResult(
                 T=T,
                 T0=result_ransac.transformation,
                 source_raw=src_pcd,  # to numpy
@@ -533,5 +557,5 @@ class Model:
                 target_scores=tgt_score_down,  # to numpy
             )
             if debug
-            else dict(T=T)
+            else RegistrationResult(T=T)
         )
