@@ -110,3 +110,7 @@ def resize_image_like(
 
     resized = cv2.resize(image, (w, h), interpolation=interpolation)
     return resized
+
+
+def rgb2luminance(colors: np.ndarray) -> np.ndarray:
+    return 0.299 * colors[:, 0] + 0.587 * colors[:, 1] + 0.114 * colors[:, 2]
