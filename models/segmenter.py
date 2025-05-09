@@ -90,11 +90,11 @@ class Segmenter:
         self.track_id = None  # 跟踪目标的 id
         self.result = None  # 保留最近一次的预测结果
 
-    def segment(self, image: np.ndarray, *, rgb=True) -> List[np.ndarray]:
+    def segment(self, image: np.ndarray, *, rgb=True, conf=0.25) -> List[np.ndarray]:
         if rgb:
             image = image[:, :, ::-1]  # 转换为 bgr 顺序
 
-        result = self.model(image)[0]
+        result = self.model(image, conf=conf)[0]
         self.result = result
         if result.masks is None:
             return []
