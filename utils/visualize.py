@@ -260,7 +260,8 @@ def show_masked_image(color: np.ndarray, mask: np.ndarray, save: Optional[str] =
     plt.tight_layout()
     if save:
         plt.savefig(save, bbox_inches="tight", pad_inches=0.0)
-    plt.show()
+    else:
+        plt.show()
 
 
 def show_colored_points(
