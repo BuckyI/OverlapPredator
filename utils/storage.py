@@ -337,10 +337,11 @@ class CacheSE(Storage):
         return self.hdf5[key][:]  # type: ignore
 
     @staticmethod
-    def dump(data, path: str, compress: bool = False):
+    def dump(data, path: str, compress: bool = False, verbose: bool = False):
         compress_ = 9 if compress else 0
         result = joblib.dump(data, path, compress=compress_)
-        logger.info(f"save to: {result}")
+        if verbose:
+            logger.info(f"save to: {result}")
 
     @staticmethod
     def load(path: str):
