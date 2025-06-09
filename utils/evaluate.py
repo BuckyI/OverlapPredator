@@ -1,4 +1,7 @@
-from typing import List
+import time
+from contextlib import contextmanager
+from functools import wraps
+from typing import Any, Callable, Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -372,3 +375,72 @@ def disturb_transform(
         disturbed_Ts.append(disturbed_T)
         errors.append(error)
     return disturbed_Ts, errors
+
+
+class Timer:
+    "用于统计函数运行时间"
+
+    def __init__(self):
+        # 函数名 -> [每次调用的执行时间]
+        self.records: Dict[str, List[float]] = {}
+
+    def _record(self, name: str, elapsed: float) -> None:
+        if name not in self.records:
+            self.records[name] = []
+        self.records[name].append(elapsed)
+
+    def timeit(self, func: Callable) -> Callable:
+        """
+        装饰器方法，用于计时并记录函数执行时间
+        但是注意不要用于 joblib 并行化处理的函数，会导致程序卡住
+        """
+
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            elapsed = time.perf_counter() - start
+
+            # 使用函数全名作为键, 初始化或更新记录列表
+            self._record(func.__qualname__, elapsed)
+            return result
+
+        return wrapper
+
+    @contextmanager
+    def time(self, theme: str):
+        """上下文管理器：统计指定代码块的执行时间"""
+        start = time.perf_counter()
+        yield
+        elapsed = time.perf_counter() - start
+        self._record(theme, elapsed)
+
+    def clear(self) -> None:
+        """清除所有计时记录"""
+        self.records.clear()
+
+    def get_stats(self, func_name: str) -> Dict[str, float]:
+        """获取指定函数的统计信息"""
+        if func_name not in self.records:
+            return {}
+
+        times = self.records[func_name]
+        return {
+            "calls": len(times),
+            "total": sum(times),
+            "avg": sum(times) / len(times),
+            "min": min(times),
+            "max": max(times),
+        }
+
+    def print_stats(self) -> None:
+        """打印所有函数的统计信息"""
+        for func_name, times in self.records.items():
+            stats = self.get_stats(func_name)
+            print(f"Function: {func_name}")
+            print(f"  Calls: {stats['calls']}")
+            print(f"  Total: {stats['total']:.6f} sec")
+            print(f"  Avg:   {stats['avg']:.6f} sec")
+            print(f"  Min:   {stats['min']:.6f} sec")
+            print(f"  Max:   {stats['max']:.6f} sec")
+            print("-" * 30)
