@@ -95,19 +95,28 @@ class Chunk:
 
         return "success"
 
-    def enhance(self):
+    def enhance(
+        self,
+        skip_every: Iterable[int] = (5, 10, 20, 30, 40, 50, 60),
+    ):
         "enhance the chunk by adding keyframe edges"
         assert self.register is not None, "register function not set"
 
-        for k in [5, 10, 20, 30, 40, 50, 60]:  # TODO: keyframe selection
+        existed_edges = set([(e.source_id, e.target_id) for e in self.edges])
+
+        for k in skip_every:
             key_frames = self.frame_ids[::k]
             key_poses = self.frame_poses[::k]
             for i in range(1, len(key_frames)):
                 sid, tid = key_frames[i], key_frames[i - 1]
+                if (sid, tid) in existed_edges:
+                    continue  # prevent duplicated registration
+
                 init_pose = np.linalg.inv(key_poses[i - 1]) @ key_poses[i]  # sid -> tid
                 flag, trans = self.register(sid, tid, init_pose)
                 if flag:
                     self.edges.append(Edge(sid, tid, trans, "skipframe"))
+                    existed_edges.add((sid, tid))
 
     def _register_skipframe(
         self, sid: int, tid: int, init_pose: np.ndarray, edge_type: str = "skipframe"
@@ -126,7 +135,10 @@ class Chunk:
     def enhance_parallel(
         self, skip_every: Iterable[int] = (5, 10, 20, 30, 40, 50, 60), **kwargs
     ):
-        "enhance the chunk by adding keyframe edges"
+        """
+        enhance the chunk by adding keyframe edges
+        WARNING: 2025.6.9 未知原因 multi_work 会卡住
+        """
         assert self.register is not None, "register function not set"
 
         existed_edges = set([(e.source_id, e.target_id) for e in self.edges])
@@ -145,6 +157,7 @@ class Chunk:
                 tasks.append(
                     delayed(self._register_skipframe)(sid, tid, init_pose, **kwargs)
                 )
+                existed_edges.add((sid, tid))
         edges = multi_work(tasks)
         for e in edges:
             assert isinstance(e, Edge)  # for type hint
