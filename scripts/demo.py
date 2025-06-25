@@ -24,7 +24,6 @@ from torch.utils.data import Dataset
 # NOTE: 把当前工作目录(项目根目录)添加到 path 中,这样可以导入其他模块
 cwd = os.getcwd()
 sys.path.append(cwd)
-import shutil
 
 from datasets.dataloader import get_dataloader
 from datasets.indoor import IndoorDataset
@@ -82,7 +81,18 @@ class ThreeDMatchDemo(Dataset):
         trans = np.ones((3, 1)).astype(np.float32)
         correspondences = torch.ones(1, 2).long()
 
-        return src_pcd, tgt_pcd, src_feats, tgt_feats, rot, trans, correspondences, src_pcd, tgt_pcd, torch.ones(1)
+        return (
+            src_pcd,
+            tgt_pcd,
+            src_feats,
+            tgt_feats,
+            rot,
+            trans,
+            correspondences,
+            src_pcd,
+            tgt_pcd,
+            torch.ones(1),
+        )
 
 
 def lighter(color, percent):
@@ -93,15 +103,21 @@ def lighter(color, percent):
     return color + vector * percent
 
 
-def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_saliency, tgt_saliency, tsfm):
+def draw_registration_result(
+    src_raw, tgt_raw, src_overlap, tgt_overlap, src_saliency, tgt_saliency, tsfm
+):
     ########################################
     # 1. input point cloud
     src_pcd_before = to_o3d_pcd(src_raw)
     tgt_pcd_before = to_o3d_pcd(tgt_raw)
     src_pcd_before.paint_uniform_color(get_yellow())
     tgt_pcd_before.paint_uniform_color(get_blue())
-    src_pcd_before.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.3, max_nn=50))
-    tgt_pcd_before.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.3, max_nn=50))
+    src_pcd_before.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.3, max_nn=50)
+    )
+    tgt_pcd_before.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.3, max_nn=50)
+    )
 
     ########################################
     # 2. overlap colors
@@ -123,6 +139,7 @@ def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_sal
     src_pcd_after.transform(tsfm)
     # save raw data:
     from workaround import save
+    # 2025年6月25日 该脚本目前存放在 scripts/workaround.py 中
 
     save(
         src_pcd_before=src_pcd_before,
@@ -140,12 +157,16 @@ def draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_sal
     vis1.add_geometry(tgt_pcd_before)
 
     vis2 = o3d.visualization.Visualizer()
-    vis2.create_window(window_name="Inferred overlap region", width=960, height=540, left=0, top=600)
+    vis2.create_window(
+        window_name="Inferred overlap region", width=960, height=540, left=0, top=600
+    )
     vis2.add_geometry(src_pcd_overlap)
     vis2.add_geometry(tgt_pcd_overlap)
 
     vis3 = o3d.visualization.Visualizer()
-    vis3.create_window(window_name="Our registration", width=960, height=540, left=960, top=0)
+    vis3.create_window(
+        window_name="Our registration", width=960, height=540, left=960, top=0
+    )
     vis3.add_geometry(src_pcd_after)
     vis3.add_geometry(tgt_pcd_before)
 
@@ -190,7 +211,9 @@ def main(config, demo_loader):
 
         ###############################################
         # forward pass
-        feats, scores_overlap, scores_saliency = config.model(inputs)  # [N1, C1], [N2, C2]
+        feats, scores_overlap, scores_saliency = config.model(
+            inputs
+        )  # [N1, C1], [N2, C2]
         # NOTE: feats: (N1+N2, 3); scores_overlap: (N1+N2, 1); scores_saliency: (N1+N2, 1)
         pcd = inputs["points"][0]  # (N1+N2, 3)
         len_src = inputs["stack_lengths"][0][0]
@@ -201,9 +224,18 @@ def main(config, demo_loader):
         src_pcd, tgt_pcd = pcd[:len_src], pcd[len_src:]
         src_raw = copy.deepcopy(src_pcd)
         tgt_raw = copy.deepcopy(tgt_pcd)
-        src_feats, tgt_feats = feats[:len_src].detach().cpu(), feats[len_src:].detach().cpu()
-        src_overlap, src_saliency = scores_overlap[:len_src].detach().cpu(), scores_saliency[:len_src].detach().cpu()
-        tgt_overlap, tgt_saliency = scores_overlap[len_src:].detach().cpu(), scores_saliency[len_src:].detach().cpu()
+        src_feats, tgt_feats = (
+            feats[:len_src].detach().cpu(),
+            feats[len_src:].detach().cpu(),
+        )
+        src_overlap, src_saliency = (
+            scores_overlap[:len_src].detach().cpu(),
+            scores_saliency[:len_src].detach().cpu(),
+        )
+        tgt_overlap, tgt_saliency = (
+            scores_overlap[len_src:].detach().cpu(),
+            scores_saliency[len_src:].detach().cpu(),
+        )
 
         ########################################
         # do probabilistic sampling guided by the score
@@ -227,8 +259,12 @@ def main(config, demo_loader):
 
         ########################################
         # run ransac and draw registration
-        tsfm = ransac_pose_estimation(src_pcd, tgt_pcd, src_feats, tgt_feats, mutual=True)
-        draw_registration_result(src_raw, tgt_raw, src_overlap, tgt_overlap, src_saliency, tgt_saliency, tsfm)
+        tsfm = ransac_pose_estimation(
+            src_pcd, tgt_pcd, src_feats, tgt_feats, mutual=True
+        )
+        draw_registration_result(
+            src_raw, tgt_raw, src_overlap, tgt_overlap, src_saliency, tgt_saliency, tsfm
+        )
 
 
 if __name__ == "__main__":
@@ -283,7 +319,11 @@ if __name__ == "__main__":
     # NOTE: 这里 neighborhood_limits 是根据训练数据集处理得到的一个东西, 具体没看明白, 它用来辅助 demo_set 的加载
     # NOTE: neighborhood_limits = np.array([38, 36, 36, 38]) 看起来是根据统计数据 hist 获得的一个判断邻域的阈值?
     demo_loader, _ = get_dataloader(
-        dataset=demo_set, batch_size=config.batch_size, shuffle=False, num_workers=1, neighborhood_limits=neighborhood_limits
+        dataset=demo_set,
+        batch_size=config.batch_size,
+        shuffle=False,
+        num_workers=1,
+        neighborhood_limits=neighborhood_limits,
     )
 
     # load pretrained weights

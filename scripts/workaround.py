@@ -1,3 +1,8 @@
+"""
+open3d 的数据类型不能直接序列化，这里是一个walkaround
+不过还是建议直接存储对应的 numpy 数组，更加通用一些，比如顶点、颜色、法线等
+"""
+
 import pickle
 from typing import Protocol
 
@@ -6,7 +11,6 @@ import open3d as o3d
 
 
 class Transformer(Protocol):
-
     @staticmethod
     def encode(data) -> dict: ...
     @staticmethod
@@ -44,7 +48,9 @@ class RegistrationResult(Transformer):
     @staticmethod
     def decode(data):
         result = o3d.pipelines.registration.RegistrationResult()
-        result.correspondence_set = o3d.utility.Vector2iVector(data["correspondence_set"])
+        result.correspondence_set = o3d.utility.Vector2iVector(
+            data["correspondence_set"]
+        )
         result.fitness = data["fitness"]
         result.inlier_rmse = data["inlier_rmse"]
         result.transformation = data["transformation"]
